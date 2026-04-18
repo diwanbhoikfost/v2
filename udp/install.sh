@@ -1,6 +1,6 @@
 #!/bin/bash
 # zivpn source : zahidbd2
-# udp custom  : Anonymous 
+# udp custom  : EvroDEV
 # script by lunatic.
 # ========================================
 # COLOR SYSTEM
@@ -45,7 +45,7 @@ if [[ -z "$IP" ]]; then
     exit 1
 fi
 
-DB_URL="https://raw.githubusercontent.com/yansyntax/permission/main/regist"
+DB_URL="https://raw.githubusercontent.com/diwanbhoikfost/permission/main/regist"
 DB=$(wget -qO- $DB_URL || echo "")
 
 EXP=$(echo "$DB" | grep -w "$IP" | awk '{print $2}' | head -n1)
