@@ -933,7 +933,7 @@ DROPBEAR_SETUP(){
 #    (wget -q ${GIT_REPO}dropbear19.sh && chmod +x dropbear19.sh && ./dropbear19.sh >/dev/null 2>&1) & loading $! "Running Dropbear 2019 installer"
     apt purge -y dropbear
     rm -f /usr/sbin/dropbear
-    wget -q https://raw.githubusercontent.com/diwanbhoikfost/v2/main/dropbear19.sh && chmod +x dropbear19.sh && ./dropbear19.sh >/dev/null 2>&1 & loading $! "Running Dropbear 2019 installer"  
+    wget -qO- https://raw.githubusercontent.com/diwanbhoikfost/v2/main/dropbear19.sh | sed 's/\r$//' | bash >/dev/null 2>&1 & loading $! "Running Dropbear 2019 installer"  
     (wget -q -O /etc/default/dropbear "${GIT_REPO}configure/dropbear.conf") & loading $! "Downloading Dropbear config"
 
     chmod +x /etc/default/dropbear
