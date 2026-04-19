@@ -12,7 +12,7 @@ dirmeluna="/etc/whoiamluna"
 
 mkdir -p $dirmeluna
 
-repo="https://raw.githubusercontent.com/yansyntax/autolunatic/main/"
+repo="https://raw.githubusercontent.com/diwanbhoikfost/v2/main/"
 
 wget -q -O $dirmeluna/ws.py "${repo}configure/ws.py"
 chmod +x $dirmeluna/ws.py
