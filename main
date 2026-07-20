@@ -388,7 +388,8 @@ FOLDER_SETUP() {
     local main_dirs=(
         "/etc/xray" "/var/lib/luna" "/etc/lunatic" "/etc/limit" "/etc/zivpn"
         "/etc/vmess" "/etc/vless" "/etc/trojan" "/etc/ssh" "/usr/local/bin"
-        "/var/log/xray"
+        "/var/log/xray" "/etc/diwan" "/etc/diwan/backup" "/etc/diwan/users"
+        "/etc/diwan/speed"
     )
     for dir in "${main_dirs[@]}"; do mkdir -p "$dir"; done
 
@@ -609,15 +610,15 @@ SSL_SETUP() {
     chmod 600 /etc/xray/xray.key /etc/xray/xray.crt 2>/dev/null
 
     # Auto-renew hook tanpa downtime
-    cat > /etc/diwan/ssl-renew-hook.sh 2>/dev/null <<'HOOK'
+    mkdir -p /etc/diwan
+    cat > /etc/diwan/ssl-renew-hook.sh <<'HOOK'
 #!/bin/bash
 cat /etc/xray/xray.crt /etc/xray/xray.key > /etc/haproxy/hap.pem 2>/dev/null
 systemctl reload haproxy 2>/dev/null || systemctl restart haproxy 2>/dev/null
 systemctl restart xray nginx 2>/dev/null
 echo "[$(date)] SSL renewed — Diwan Tunneling" >> /var/log/diwan-ssl-renew.log
 HOOK
-    mkdir -p /etc/diwan
-    chmod +x /etc/diwan/ssl-renew-hook.sh 2>/dev/null
+    chmod +x /etc/diwan/ssl-renew-hook.sh
 
     /root/.acme.sh/acme.sh --install-cert -d "$domain" \
         --fullchainpath /etc/xray/xray.crt \
