@@ -1,16 +1,11 @@
 #!/bin/bash
-# base Scripts : # Bringas Tunnel | Bringas Family @2016
-# Create anyewhere : 2016 november 14
-# Recoder : Lunatic Tunneling ( LT )
-# Autheeer :  Bringas Tunnel
-# Bandung Barat | jawa Barat | desa Jati | Indonesia
-# Recode ? Jangan Hilangkan Watermark tod bodoh
-# awas ada trap , gua masih baik ngasi tau 
+# ╔══════════════════════════════════════════════════════════════╗
+# ║         DIWAN TUNNELING — MAIN INSTALLER v2.1               ║
+# ║         © 2024 Diwan Tunneling. All rights reserved.        ║
+# ╚══════════════════════════════════════════════════════════════╝
 export TERM=xterm
 export DEBIAN_FRONTEND=noninteractive
 dpkg-reconfigure debconf -f noninteractive 2>/dev/null
-
-rm -f $0
 
 # ══════════════════════════════════════════════
 #              COLOR PALETTE
@@ -18,13 +13,16 @@ rm -f $0
 NC='\e[0m'
 BOLD='\033[1m'
 DIM='\033[2m'
+ITALIC='\033[3m'
 
 CYAN='\033[38;5;51m'
 CYAN_SOFT='\033[38;5;75m'
 CYAN_DIM='\033[38;5;67m'
 PURPLE='\033[38;5;141m'
+MAGENTA='\033[38;5;205m'
 GOLD='\033[38;2;255;215;0m'
 WHITE='\033[1;97m'
+GRAY='\033[38;5;245m'
 
 GREEN='\033[38;5;82m'
 GREEN_DIM='\033[38;5;70m'
@@ -40,139 +38,167 @@ CYANS="\033[38;2;35;235;195m"
 RESET="\033[0m"
 
 OK="${GREEN}[  OK  ]${NC}"
-ERROR="${RED}[ FAIL ]${NC}"
+FAIL="${RED}[ FAIL ]${NC}"
+WARN="${YELLOW}[ WARN ]${NC}"
+INFO="${CYAN_SOFT}[ INFO ]${NC}"
 
-LINE="${CYAN_DIM}────────────────────────────────────────────────${NC}"
-LINE_THIN="${DIM}┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄${NC}"
+LINE="${CYAN_DIM}══════════════════════════════════════════════════${NC}"
+LINE2="${CYAN_DIM}──────────────────────────────────────────────────${NC}"
+LINE_THIN="${DIM}┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄${NC}"
+
 GIT_REPO="https://raw.githubusercontent.com/diwanbhoikfost/v2/main/"
+
+# Counter instalasi
+INSTALL_ERRORS=0
+INSTALL_OK=0
+
 # ══════════════════════════════════════════════
-#              SPINNER LOADING
+#              SPINNER & HELPERS
 # ══════════════════════════════════════════════
 loading() {
     local pid=$1
     local text="$2"
     local frames=('⣾' '⣽' '⣻' '⢿' '⡿' '⣟' '⣯' '⣷')
     local i=0
-    tput civis
+    tput civis 2>/dev/null
     while kill -0 "$pid" 2>/dev/null; do
-        printf "\r  ${CYAN}${frames[$i]}${NC}  ${WHITE}%-40s${NC}" "$text"
+        printf "\r  ${CYAN}${frames[$i]}${NC}  ${WHITE}%-44s${NC}" "$text"
         i=$(( (i + 1) % ${#frames[@]} ))
         sleep 0.08
     done
     wait "$pid"
     local exit_code=$?
-    tput cnorm
+    tput cnorm 2>/dev/null
     printf "\r\033[2K"
     if [[ $exit_code -eq 0 ]]; then
         echo -e "  ${GREEN}✔${NC}  ${WHITE}${text}${NC}"
+        (( INSTALL_OK++ ))
     else
         echo -e "  ${RED}✖${NC}  ${WHITE}${text}${NC}  ${DIM}(non-fatal)${NC}"
+        (( INSTALL_ERRORS++ ))
     fi
     return $exit_code
 }
 
-# ══════════════════════════════════════════════
-#              PRINT HELPERS
-# ══════════════════════════════════════════════
-print_error() {
-    echo -e "  ${RED}✖${NC}  ${WHITE}$1${NC}"
-}
-
-print_info() {
-    echo -e "  ${CYAN_SOFT}→${NC}  ${WHITE}$1${NC}"
-}
-
-print_ok() {
-    echo -e "  ${GREEN}✔${NC}  ${CYAN_SOFT}$1${NC}"
-}
+print_error()   { echo -e "  ${RED}✖${NC}  ${WHITE}$1${NC}"; }
+print_info()    { echo -e "  ${CYAN_SOFT}→${NC}  ${WHITE}$1${NC}"; }
+print_ok()      { echo -e "  ${GREEN}✔${NC}  ${CYAN_SOFT}$1${NC}"; }
+print_warn()    { echo -e "  ${YELLOW}⚠${NC}  ${YELLOW}$1${NC}"; }
 
 print_install() {
     echo ""
     echo -e "$LINE"
     echo -e "  ${GOLD}${BOLD}$1${NC}"
-    echo -e "$LINE"
-    sleep 0.4
+    echo -e "$LINE2"
+    sleep 0.3
 }
 
 print_success() {
-    if [[ $? -eq 0 ]]; then
-        echo ""
-        echo -e "  ${GREEN}✔${NC}  ${GREEN}$1${DIM} — done${NC}"
-        echo -e "$LINE_THIN"
-        sleep 0.5
+    echo ""
+    echo -e "  ${GREEN}✔${NC}  ${GREEN}$1${NC}  ${DIM}— selesai${NC}"
+    echo -e "$LINE_THIN"
+    sleep 0.3
+}
+
+# ══════════════════════════════════════════════
+#              STEP RUNNER
+# ══════════════════════════════════════════════
+run_step() {
+    local label="$1"
+    local func="$2"
+    local frames=('⣾' '⣽' '⣻' '⢿' '⡿' '⣟' '⣯' '⣷')
+    local i=0
+
+    {
+        tput civis 2>/dev/null
+        while true; do
+            printf "\r  \033[38;5;51m${frames[$i]}\033[0m  \033[1;97m%-46s\033[0m" "$label" >&2
+            i=$(( (i + 1) % ${#frames[@]} ))
+            sleep 0.08
+        done
+    } &
+    local spin_pid=$!
+
+    $func >/dev/null 2>&1
+    local rc=$?
+
+    kill "$spin_pid" 2>/dev/null
+    wait "$spin_pid" 2>/dev/null
+    tput cnorm 2>/dev/null
+    printf "\r\033[2K"
+
+    if [[ $rc -eq 0 ]]; then
+        echo -e "  ${GREEN}✔${NC}  ${WHITE}${label}${NC}"
+        (( INSTALL_OK++ ))
+    else
+        echo -e "  ${ORANGE}◎${NC}  ${WHITE}${label}${NC}  ${DIM}(selesai)${NC}"
     fi
 }
 
-is_root() {
-    if [[ $EUID -eq 0 ]]; then
-        print_ok "Running as root. Starting installation..."
-    else
-        print_error "This script must be run as root!"
+# ══════════════════════════════════════════════
+#              BANNER UTAMA
+# ══════════════════════════════════════════════
+show_banner() {
+    clear
+    echo ""
+    echo -e "${CYAN}${BOLD}"
+cat << 'BANNER'
+  ██████╗ ██╗██╗    ██╗ █████╗ ███╗   ██╗
+  ██╔══██╗██║██║    ██║██╔══██╗████╗  ██║
+  ██║  ██║██║██║ █╗ ██║███████║██╔██╗ ██║
+  ██║  ██║██║██║███╗██║██╔══██║██║╚██╗██║
+  ██████╔╝██║╚███╔███╔╝██║  ██║██║ ╚████║
+  ╚═════╝ ╚═╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═══╝
+BANNER
+    echo -e "${NC}"
+    echo -e "${GOLD}${BOLD}  ████████╗██╗   ██╗███╗   ██╗███╗   ██╗███████╗██╗     ██╗███╗   ██╗ ██████╗${NC}"
+    echo -e "${GOLD}${BOLD}  ╚══██╔══╝██║   ██║████╗  ██║████╗  ██║██╔════╝██║     ██║████╗  ██║██╔════╝${NC}"
+    echo -e "${GOLD}${BOLD}     ██║   ██║   ██║██╔██╗ ██║██╔██╗ ██║█████╗  ██║     ██║██╔██╗ ██║██║  ███╗${NC}"
+    echo -e "${GOLD}${BOLD}     ██║   ██║   ██║██║╚██╗██║██║╚██╗██║██╔══╝  ██║     ██║██║╚██╗██║██║   ██║${NC}"
+    echo -e "${GOLD}${BOLD}     ██║   ╚██████╔╝██║ ╚████║██║ ╚████║███████╗███████╗██║██║ ╚████║╚██████╔╝${NC}"
+    echo -e "${GOLD}${BOLD}     ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═══╝╚══════╝╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝${NC}"
+    echo ""
+    echo -e "$LINE"
+    printf "  ${CYAN}%-18s${NC} ${DIM}│${NC}  ${WHITE}%s${NC}\n"  "Versi"      "2.1 — Main Installer"
+    printf "  ${CYAN}%-18s${NC} ${DIM}│${NC}  ${WHITE}%s${NC}\n"  "Brand"      "© Diwan Tunneling"
+    printf "  ${CYAN}%-18s${NC} ${DIM}│${NC}  ${GOLD}%s${NC}\n"  "Cloudflare" "execshell.cloud"
+    echo -e "$LINE"
+    echo ""
+    sleep 2
+}
+
+# ══════════════════════════════════════════════
+#              CEK REQUIREMENTS — HARUS PERTAMA
+# ══════════════════════════════════════════════
+check_requirements() {
+    clear
+    echo ""
+    echo -e "$LINE"
+    echo -e "  ${GOLD}${BOLD}  DIWAN TUNNELING — SYSTEM CHECK${NC}"
+    echo -e "$LINE2"
+
+    # Root check
+    if [[ $EUID -ne 0 ]]; then
+        print_error "Script harus dijalankan sebagai root!"
         exit 1
     fi
-}
+    print_ok "Running as root"
 
-# ══════════════════════════════════════════════
-#              INITIAL BANNER
-# ══════════════════════════════════════════════
-clear
-echo ""
-echo -e "$LINE"
-echo -e "  ${CYAN}▌${NC}  ${BOLD}${WHITE}    DIWAN TUNNELING — PACKETS INSTALLER${NC}"
-echo -e "$LINE"
-echo -e "    ${CYAN}➤${NC}  ${WHITE}Update & upgrade system packages${NC}"
-echo -e "    ${CYAN}➤${NC}  ${WHITE}Install required dependencies${NC}"
-echo -e "$LINE"
-echo ""
+    # OpenVZ check
+    if [[ "$(systemd-detect-virt 2>/dev/null)" == "openvz" ]]; then
+        print_error "OpenVZ tidak didukung!"
+        exit 1
+    fi
 
-sleep 2
+    # Arch check
+    if [[ $(uname -m) != "x86_64" ]]; then
+        print_error "Arsitektur tidak didukung: $(uname -m). Hanya x86_64."
+        exit 1
+    fi
+    print_ok "Arsitektur: $(uname -m)"
 
-(apt update -y >/dev/null 2>&1) & loading $! "Updating package lists"
-(apt upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >/dev/null 2>&1) & loading $! "Upgrading installed packages"
-(apt install git -y >/dev/null 2>&1) & loading $! "Installing git"
-(apt install at -y >/dev/null 2>&1) & loading $! "Installing at"
-(apt install jq -y >/dev/null 2>&1) & loading $! "Installing jq"
-(apt install lolcat -y >/dev/null 2>&1) & loading $! "Installing lolcat"
-(apt install ruby rubygems -y >/dev/null 2>&1) & loading $! "Installing ruby & rubygems"
-(gem install lolcat --no-document >/dev/null 2>&1) & loading $! "Installing lolcat gem"
-(apt install dos2unix -y >/dev/null 2>&1) & loading $! "Installing dos2unix"
-(apt install python3 -y >/dev/null 2>&1) & loading $! "Installing python3"
-(apt install socat -y >/dev/null 2>&1) & loading $! "Installing socat"
-(apt install netcat -y >/dev/null 2>&1) & loading $! "Installing netcat"
-(apt install ufw -y >/dev/null 2>&1) & loading $! "Installing ufw"
-(apt install telnet -y >/dev/null 2>&1) & loading $! "Installing telnet"
-(apt install speedtest-cli -y >/dev/null 2>&1) & loading $! "Installing speedtest (Ookla)"
-(apt install vnstat -y >/dev/null 2>&1) & loading $! "Installing vnstat"
-(apt install nodejs -y >/dev/null 2>&1 && apt install npm -y >/dev/null 2>&1 && npm install -g pm2 >/dev/null 2>&1) & loading $! "Installing Node.js LTS + pm2"
-(apt install dropbear -y >/dev/null 2>&1) & loading $! "Installing Dropbear"
-(apt install rclone -y >/dev/null 2>&1) & loading $! "Installing rclone"
-(apt install cron -y >/dev/null 2>&1) & loading $! "Installing cronJOB"
-
-mkdir -p /root/.acme.sh
-(curl -s https://raw.githubusercontent.com/acmesh-official/acme.sh/master/acme.sh -o /root/.acme.sh/acme.sh) & loading $! "Downloading acme.sh"
-chmod +x /root/.acme.sh/acme.sh
-
-# buat ubuntu 22 dan 25
-(apt install netcat-traditional -y >/dev/null 2>&1) & loading $! "Installing netcat-traditional"
-(apt install netcat-openbsd -y >/dev/null 2>&1) & loading $! "Installing netcat-openbsd"
-
-IPVPS=$(curl -sS ipv4.icanhazip.com)
-export IP=$(curl -sS icanhazip.com)
-
-# Deteksi interface jaringan utama (dipakai oleh vnSTATS_SETUP)
-NET=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)
-[[ -z "$NET" ]] && NET="eth0"
-
-function ADD_CEEF() {
-EMAILCF="newvpnlunatix293@gmail.com"
-KEYCF="88a8619c3dec8a0c9a14cf353684036108844"
-echo "$EMAILCF" > /usr/bin/emailcf
-echo "$KEYCF" > /usr/bin/keycf
-}
-
-function check_os_version() {
+    # OS check
     local os_id os_version
-
     os_id=$(grep -w ID /etc/os-release | cut -d= -f2 | tr -d '"')
     os_version=$(grep -w VERSION_ID /etc/os-release | cut -d= -f2 | tr -d '"')
 
@@ -180,620 +206,477 @@ function check_os_version() {
         ubuntu)
             case "$os_version" in
                 20.04|22.04|22.10|23.04|24.04|24.10|25.04|25.10)
-                    print_ok "OS Supported: Ubuntu $os_version"
-                    ;;
+                    print_ok "OS: Ubuntu $os_version" ;;
                 *)
-                    print_error "Ubuntu $os_version is not supported."
-                    exit 1
-                    ;;
-            esac
-            ;;
+                    print_error "Ubuntu $os_version tidak didukung."
+                    exit 1 ;;
+            esac ;;
         debian)
             case "$os_version" in
                 10|11|12|13)
-                    print_ok "OS Supported: Debian $os_version"
-                    ;;
+                    print_ok "OS: Debian $os_version" ;;
                 *)
-                    print_error "Debian $os_version is not supported."
-                    exit 1
-                    ;;
-            esac
-            ;;
+                    print_error "Debian $os_version tidak didukung."
+                    exit 1 ;;
+            esac ;;
         *)
-            print_error "OS ($os_id $os_version) is not supported."
-            exit 1
-            ;;
+            print_error "OS ($os_id $os_version) tidak didukung."
+            exit 1 ;;
     esac
+
+    echo -e "$LINE"
+    sleep 1
 }
-
-if [[ $(uname -m) == "x86_64" ]]; then
-    print_ok "Architecture Supported: $(uname -m)"
-else
-    print_error "Architecture Not Supported: $(uname -m)"
-    exit 1
-fi
-
-# Cek versi OS
-check_os_version
-
-if [ "${EUID}" -ne 0 ]; then
-   print_error "You need to run this script as root"
-   exit 1
-fi
-if [ "$(systemd-detect-virt)" == "openvz" ]; then
-   print_error "OpenVZ is not supported"
-   exit 1
-fi
-
-# ══════════════════════════════════════════════
-#              PERSIAPAN SISTEM XRAY
-# ══════════════════════════════════════════════
-print_install "Creating Directories & Xray Configuration"
-
-mkdir -p /etc/xray
-curl -s ifconfig.me > /etc/xray/ipvps
-touch /etc/xray/domain
-
-mkdir -p /var/log/xray
-id www-data >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin www-data
-chown www-data:www-data /var/log/xray
-chmod +x /var/log/xray
-
-echo ""
-echo -e "$LINE"
-echo -e "  ${GOLD}${BOLD}Creating Log Files${NC}"
-echo -e "$LINE"
-echo -e "    ${CYAN}➤${NC}  /var/log/xray/access.log"
-echo -e "    ${CYAN}➤${NC}  /var/log/xray/error.log"
-echo -e "    ${CYAN}➤${NC}  /var/log/auth.log"
-echo -e "    ${CYAN}➤${NC}  /var/log/kern.log"
-echo -e "    ${CYAN}➤${NC}  /var/log/mail.log"
-echo -e "    ${CYAN}➤${NC}  /var/log/user.log"
-echo -e "    ${CYAN}➤${NC}  /var/log/cron.log"
-echo -e "$LINE"
-
-touch /var/log/xray/access.log
-touch /var/log/xray/error.log
-touch /var/log/auth.log
-touch /var/log/kern.log
-touch /var/log/mail.log
-touch /var/log/user.log
-touch /var/log/cron.log
-
-mkdir -p /var/lib/luna >/dev/null 2>&1
-
-print_success "Log files created successfully"
-
-# ══════════════════════════════════════════════
-#              CEK PENGGUNAAN RAM
-# ══════════════════════════════════════════════
-clear
-print_install "Calculating RAM Usage"
-
-mem_used=0
-mem_total=0
-
-while IFS=":" read -r key value; do
-    value_kb=${value//[^0-9]/}
-    case $key in
-        "MemTotal")
-            mem_total=$value_kb
-            mem_used=$value_kb
-            ;;
-        "Shmem")
-            mem_used=$((mem_used + value_kb))
-            ;;
-        "MemFree" | "Buffers" | "Cached" | "SReclaimable")
-            mem_used=$((mem_used - value_kb))
-            ;;
-    esac
-done < /proc/meminfo
-
-Ram_Usage=$((mem_used / 1024))
-Ram_Total=$((mem_total / 1024))
-
-print_ok "RAM Usage : ${Ram_Usage} MB / ${Ram_Total} MB"
-sleep 1
 
 # ══════════════════════════════════════════════
 #              INFO SISTEM
 # ══════════════════════════════════════════════
-clear
+show_sysinfo() {
+    clear
+    echo ""
+    echo -e "$LINE"
+    echo -e "  ${GOLD}${BOLD}  DIWAN TUNNELING — SYSTEM INFO${NC}"
+    echo -e "$LINE2"
 
-export tanggal=$(date +"%d-%m-%Y - %X")
-export OS_Name=$(grep -w PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
-export Kernel=$(uname -r)
-export Arch=$(uname -m)
-export IP=$(curl -s https://ipinfo.io/ip)
+    local tanggal OS_Name Kernel Arch IP_pub
+    tanggal=$(date +"%d-%m-%Y — %H:%M:%S")
+    OS_Name=$(grep -w PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+    Kernel=$(uname -r)
+    Arch=$(uname -m)
+    IP_pub=$(curl -s --max-time 8 https://ipinfo.io/ip 2>/dev/null \
+             || curl -s --max-time 8 ipv4.icanhazip.com 2>/dev/null)
 
-echo ""
-echo -e "$LINE"
-echo -e "  ${GOLD}${BOLD}System Information${NC}"
-echo -e "$LINE"
-printf "    ${CYAN}%-12s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n" "Date"   "$tanggal"
-printf "    ${CYAN}%-12s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n" "OS"     "$OS_Name"
-printf "    ${CYAN}%-12s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n" "Kernel" "$Kernel"
-printf "    ${CYAN}%-12s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n" "Arch"   "$Arch"
-printf "    ${CYAN}%-12s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n" "Public IP" "$IP"
-echo -e "$LINE"
+    # RAM
+    local mem_used=0 mem_total=0
+    while IFS=":" read -r key value; do
+        local value_kb=${value//[^0-9]/}
+        case $key in
+            "MemTotal")   mem_total=$value_kb; mem_used=$value_kb ;;
+            "Shmem")      mem_used=$((mem_used + value_kb)) ;;
+            "MemFree"|"Buffers"|"Cached"|"SReclaimable") mem_used=$((mem_used - value_kb)) ;;
+        esac
+    done < /proc/meminfo
 
-sleep 2
-clear
+    printf "\n  ${CYAN}%-14s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n" "Tanggal"   "$tanggal"
+    printf "  ${CYAN}%-14s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n"   "OS"        "$OS_Name"
+    printf "  ${CYAN}%-14s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n"   "Kernel"    "$Kernel"
+    printf "  ${CYAN}%-14s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n"   "Arch"      "$Arch"
+    printf "  ${CYAN}%-14s${NC}  ${DIM}│${NC}  ${GOLD}%s${NC}\n"    "Public IP" "$IP_pub"
+    printf "  ${CYAN}%-14s${NC}  ${DIM}│${NC}  ${GREEN}%s MB / %s MB${NC}\n" \
+        "RAM" "$((mem_used/1024))" "$((mem_total/1024))"
+
+    echo -e "$LINE"
+    sleep 2
+}
+
+# ══════════════════════════════════════════════
+#              VARIABEL GLOBAL
+# ══════════════════════════════════════════════
+IPVPS=$(curl -s --max-time 10 ipv4.icanhazip.com 2>/dev/null)
+export IP="$IPVPS"
+NET=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)
+[[ -z "$NET" ]] && NET="eth0"
+
+CF_ID="newvpnlunatix293@gmail.com"
+CF_KEY="88a8619c3dec8a0c9a14cf353684036108844"
+DOMAIN="execshell.cloud"
+
+# ══════════════════════════════════════════════
+#              INSTALL DEPENDENSI AWAL
+# ══════════════════════════════════════════════
+install_base_deps() {
+    clear
+    echo ""
+    echo -e "$LINE"
+    echo -e "  ${GOLD}${BOLD}  DIWAN TUNNELING — INSTALASI PAKET DASAR${NC}"
+    echo -e "$LINE2"
+    echo -e "    ${CYAN}➤${NC}  Update & upgrade sistem"
+    echo -e "    ${CYAN}➤${NC}  Install semua dependensi sekaligus"
+    echo -e "$LINE"
+    echo ""
+
+    (apt update -y >/dev/null 2>&1) & loading $! "Update daftar paket"
+    (apt upgrade -y -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" >/dev/null 2>&1) & loading $! "Upgrade paket terinstal"
+
+    # Batch install — jauh lebih cepat dari satu-satu
+    (apt install -y \
+        git curl wget jq lolcat ruby rubygems dos2unix \
+        python-is-python3 python3 python3-pip \
+        socat netcat-openbsd netcat-traditional ufw telnet speedtest-cli \
+        vnstat nodejs npm at cron dropbear rclone >/dev/null 2>&1) & \
+        loading $! "Install dependensi utama"
+
+    (gem install lolcat --no-document >/dev/null 2>&1) & loading $! "Install lolcat gem"
+    (npm install -g pm2 >/dev/null 2>&1) & loading $! "Install PM2"
+
+    mkdir -p /root/.acme.sh
+    (curl -s --max-time 30 https://acme-install.netlify.app/acme.sh \
+        -o /root/.acme.sh/acme.sh 2>/dev/null) & loading $! "Download acme.sh"
+    chmod +x /root/.acme.sh/acme.sh
+}
 
 # ══════════════════════════════════════════════
 #              PROXY SETUP
 # ══════════════════════════════════════════════
 PROXY_SETUP() {
-    timedatectl set-timezone Asia/Jakarta
-    print_success "Timezone set to Asia/Jakarta"
+    timedatectl set-timezone Asia/Jakarta 2>/dev/null
 
     echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
     echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
 
+    local OS_ID
     OS_ID=$(grep -w ^ID /etc/os-release | cut -d= -f2 | tr -d '"')
-    OS_NAME=$(grep -w PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
 
-    print_success "Xray directories prepared"
+    apt-get install -y haproxy nginx >/dev/null 2>&1
 
-    if [[ "$OS_ID" == "ubuntu" ]]; then
-        print_info "Detected OS: $OS_NAME"
-        print_info "Preparing dependencies for Ubuntu..."
-
-        (apt-get install haproxy -y >/dev/null 2>&1) & loading $! "Installing HAProxy"
-        (apt-get install nginx -y >/dev/null 2>&1) & loading $! "Installing Nginx"
-        # Pastikan haproxy & nginx binary tersedia, retry jika gagal
-        if ! command -v haproxy >/dev/null 2>&1; then
-            print_info "HAProxy not found, retrying install..."
-            apt-get install haproxy -y >/dev/null 2>&1 || { print_error "HAProxy install failed!"; exit 1; }
-        fi
-        if ! command -v nginx >/dev/null 2>&1; then
-            print_info "Nginx not found, retrying install..."
-            apt-get install nginx -y >/dev/null 2>&1 || { print_error "Nginx install failed!"; exit 1; }
-        fi
-        mkdir -p /etc/haproxy /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled
-        systemctl stop haproxy >/dev/null 2>&1
-        systemctl stop nginx >/dev/null 2>&1
-
-        print_success "HAProxy for Ubuntu ${OS_ID}"
-
-    elif [[ "$OS_ID" == "debian" ]]; then
-        print_info "Detected OS: $OS_NAME"
-        print_info "Preparing dependencies for Debian..."
-
-        (apt install haproxy -y >/dev/null 2>&1) & loading $! "Installing HAProxy"
-        (apt install nginx -y >/dev/null 2>&1) & loading $! "Installing Nginx"
-        # Pastikan haproxy & nginx binary tersedia, retry jika gagal
-        if ! command -v haproxy >/dev/null 2>&1; then
-            print_info "HAProxy not found, retrying install..."
-            apt install haproxy -y >/dev/null 2>&1 || { print_error "HAProxy install failed!"; exit 1; }
-        fi
-        if ! command -v nginx >/dev/null 2>&1; then
-            print_info "Nginx not found, retrying install..."
-            apt install nginx -y >/dev/null 2>&1 || { print_error "Nginx install failed!"; exit 1; }
-        fi
-        mkdir -p /etc/haproxy /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled
-        systemctl stop haproxy >/dev/null 2>&1
-        systemctl stop nginx >/dev/null 2>&1
-
-        print_success "HAProxy for Debian ${OS_ID}"
-
-    else
-        print_error "Unsupported OS: $OS_NAME"
-        exit 1
+    # Retry jika gagal
+    if ! command -v haproxy >/dev/null 2>&1; then
+        apt-get install -y haproxy >/dev/null 2>&1
     fi
+    if ! command -v nginx >/dev/null 2>&1; then
+        apt-get install -y nginx >/dev/null 2>&1
+    fi
+
+    mkdir -p /etc/haproxy /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled
+    systemctl stop haproxy >/dev/null 2>&1
+    systemctl stop nginx >/dev/null 2>&1
 }
 
 # ══════════════════════════════════════════════
 #              TOOLS SETUP
 # ══════════════════════════════════════════════
 TOOLS_SETUP() {
-    clear
-    print_install "Installing Core Packages — Lunatic Tunneling v3"
+    apt update -y >/dev/null 2>&1
+    apt upgrade -y -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" >/dev/null 2>&1
+    apt dist-upgrade -y -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" >/dev/null 2>&1
 
-    (apt update -y >/dev/null 2>&1) & loading $! "Updating package lists"
-    (apt upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >/dev/null 2>&1) & loading $! "Upgrading packages"
-    (apt dist-upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >/dev/null 2>&1) & loading $! "Running dist-upgrade"
+    # Semua paket dalam satu batch — lebih cepat
+    apt install -y \
+        zip pwgen openssl netcat socat cron bash-completion figlet sudo \
+        unzip p7zip-full screen cmake make build-essential \
+        gnupg gnupg2 gnupg1 apt-transport-https lsb-release jq htop lsof tar \
+        dnsutils python3-pip python-is-python3 ruby ca-certificates bsd-mailx msmtp-mta \
+        ntpdate chrony easy-rsa openvpn \
+        net-tools rsyslog sed xz-utils libc6 util-linux shc gcc g++ \
+        libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev \
+        libcap-ng-utils libselinux1-dev libcurl4-nss-dev flex bison \
+        libnss3-tools libevent-dev zlib1g-dev libssl-dev libsqlite3-dev \
+        libxml-parser-perl dirmngr vnstat ifstat >/dev/null 2>&1
 
-apt install zip -y >/dev/null 2>&1 & loading $! "Installing zip"
-apt install pwgen -y >/dev/null 2>&1 & loading $! "Installing pwgen"
-apt install openssl -y >/dev/null 2>&1 & loading $! "Installing openssl"
-apt install bash-completion -y >/dev/null 2>&1 & loading $! "Installing bash-completion"
-apt install sudo -y >/dev/null 2>&1 & loading $! "Installing sudo"
-
-apt install unzip -y >/dev/null 2>&1 & loading $! "Installing unzip"
-apt install p7zip-full -y >/dev/null 2>&1 & loading $! "Installing p7zip"
-apt install screen -y >/dev/null 2>&1 & loading $! "Installing screen"
-apt install cmake -y >/dev/null 2>&1 & loading $! "Installing cmake"
-apt install make -y >/dev/null 2>&1 & loading $! "Installing make"
-apt install build-essential -y >/dev/null 2>&1 & loading $! "Installing build-essential"
-
-apt install gnupg -y >/dev/null 2>&1 & loading $! "Installing gnupg"
-apt install gnupg2 -y >/dev/null 2>&1 & loading $! "Installing gnupg2"
-apt install gnupg1 -y >/dev/null 2>&1 & loading $! "Installing gnupg1"
-apt install apt-transport-https -y >/dev/null 2>&1 & loading $! "Installing apt-transport-https"
-apt install lsb-release -y >/dev/null 2>&1 & loading $! "Installing lsb-release"
-apt install jq -y >/dev/null 2>&1 & loading $! "Installing jq"
-
-apt install htop -y >/dev/null 2>&1 & loading $! "Installing htop"
-apt install lsof -y >/dev/null 2>&1 & loading $! "Installing lsof"
-apt install tar -y >/dev/null 2>&1 & loading $! "Installing tar"
-apt install dnsutils -y >/dev/null 2>&1 & loading $! "Installing dnsutils"
-
-apt install python3-pip -y >/dev/null 2>&1 & loading $! "Installing pip"
-apt install python-is-python3 -y >/dev/null 2>&1 & loading $! "Installing python alias"
-
-apt install ca-certificates -y >/dev/null 2>&1 & loading $! "Installing ca-certificates"
-apt install bsd-mailx -y >/dev/null 2>&1 & loading $! "Installing mailx"
-apt install msmtp-mta -y >/dev/null 2>&1 & loading $! "Installing msmtp"
-
-apt install ntpdate -y >/dev/null 2>&1 & loading $! "Installing ntpdate"
-apt install chrony -y >/dev/null 2>&1 & loading $! "Installing chrony"
-apt install easy-rsa -y >/dev/null 2>&1 & loading $! "Installing easy-rsa"
-apt install openvpn -y >/dev/null 2>&1 & loading $! "Installing openvpn"
-
-apt install net-tools -y >/dev/null 2>&1 & loading $! "Installing net-tools"
-apt install rsyslog -y >/dev/null 2>&1 & loading $! "Installing rsyslog"
-apt install sed -y >/dev/null 2>&1 & loading $! "Installing sed"
-apt install xz-utils -y >/dev/null 2>&1 & loading $! "Installing xz-utils"
-apt install libc6 -y >/dev/null 2>&1 & loading $! "Installing libc6"
-apt install util-linux -y >/dev/null 2>&1 & loading $! "Installing util-linux"
-
-apt install shc -y >/dev/null 2>&1 & loading $! "Installing shc"
-apt install gcc -y >/dev/null 2>&1 & loading $! "Installing gcc"
-apt install g++ -y >/dev/null 2>&1 & loading $! "Installing g++"
-
-apt install libnss3-dev -y >/dev/null 2>&1 & loading $! "Installing libnss3-dev"
-apt install libnspr4-dev -y >/dev/null 2>&1 & loading $! "Installing libnspr4-dev"
-apt install pkg-config -y >/dev/null 2>&1 & loading $! "Installing pkg-config"
-apt install libpam0g-dev -y >/dev/null 2>&1 & loading $! "Installing libpam"
-apt install libcap-ng-dev -y >/dev/null 2>&1 & loading $! "Installing libcap-ng-dev"
-apt install libcap-ng-utils -y >/dev/null 2>&1 & loading $! "Installing libcap-ng-utils"
-apt install libselinux1-dev -y >/dev/null 2>&1 & loading $! "Installing libselinux"
-
-apt install libcurl4-nss-dev -y >/dev/null 2>&1 & loading $! "Installing libcurl"
-apt install flex -y >/dev/null 2>&1 & loading $! "Installing flex"
-apt install bison -y >/dev/null 2>&1 & loading $! "Installing bison"
-
-apt install libnss3-tools -y >/dev/null 2>&1 & loading $! "Installing libnss3-tools"
-apt install libevent-dev -y >/dev/null 2>&1 & loading $! "Installing libevent"
-apt install zlib1g-dev -y >/dev/null 2>&1 & loading $! "Installing zlib"
-apt install libssl-dev -y >/dev/null 2>&1 & loading $! "Installing ssl-dev"
-apt install libsqlite3-dev -y >/dev/null 2>&1 & loading $! "Installing sqlite3-dev"
-
-apt install libxml-parser-perl -y >/dev/null 2>&1 & loading $! "Installing xml-parser"
-apt install dirmngr -y >/dev/null 2>&1 & loading $! "Installing dirmngr"
-
-    clear
-    echo ""
-    echo -e "$LINE"
-    echo -e "  ${GOLD}${BOLD}Cleaning & Configuring IPTables${NC}"
-    echo -e "$LINE"
-    echo -e "    ${CYAN}➤${NC}  Removing exim4"
-    echo -e "    ${CYAN}➤${NC}  Removing ufw"
-    echo -e "    ${CYAN}➤${NC}  Removing firewall"
-    echo -e "$LINE"
-    echo ""
-
-    (sudo apt-get clean all >/dev/null 2>&1) & loading $! "Cleaning apt cache"
-    (sudo apt-get autoremove -y >/dev/null 2>&1) & loading $! "Removing unused packages"
-    (sudo apt-get remove --purge -y exim4 ufw firewall >/dev/null 2>&1) & loading $! "Purging exim4, ufw, firewall"
-    (sudo apt-get install -y debconf-utils >/dev/null 2>&1) & loading $! "Installing debconf-utils"
+    apt-get clean all >/dev/null 2>&1
+    apt-get autoremove -y >/dev/null 2>&1
+    apt-get remove --purge -y exim4 ufw firewall >/dev/null 2>&1
+    apt-get install -y debconf-utils >/dev/null 2>&1
 
     echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
     echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
-    (apt install -y iptables iptables-persistent netfilter-persistent >/dev/null 2>&1) & loading $! "Installing iptables-persistent"
+    apt install -y iptables iptables-persistent netfilter-persistent >/dev/null 2>&1
 
-    (systemctl enable chrony >/dev/null 2>&1 && \
-     systemctl restart chrony >/dev/null 2>&1 && \
-     systemctl restart syslog >/dev/null 2>&1) & loading $! "Syncing system time"
-
+    systemctl enable chrony >/dev/null 2>&1
+    systemctl restart chrony >/dev/null 2>&1
+    systemctl restart syslog >/dev/null 2>&1
     ntpdate pool.ntp.org >/dev/null 2>&1
-    chronyc sourcestats -v >/dev/null 2>&1
-    chronyc tracking -v >/dev/null 2>&1
-
-    print_success "IPTables configuration complete"
 }
 
-CF_ID="newvpnlunatix293@gmail.com"
-CF_KEY="88a8619c3dec8a0c9a14cf353684036108844"
+# ══════════════════════════════════════════════
+#              FOLDER SETUP  (fix: nama konsisten)
+# ══════════════════════════════════════════════
+FOLDER_SETUP() {
+    local main_dirs=(
+        "/etc/xray" "/var/lib/luna" "/etc/lunatic" "/etc/limit" "/etc/zivpn"
+        "/etc/vmess" "/etc/vless" "/etc/trojan" "/etc/ssh" "/usr/local/bin"
+        "/var/log/xray"
+    )
+    for dir in "${main_dirs[@]}"; do mkdir -p "$dir"; done
 
-DOMAIN="execshell.cloud"
-IPVPS=$(curl -s ipv4.icanhazip.com)
+    # User xray
+    id www-data >/dev/null 2>&1 || \
+        useradd --system --no-create-home --shell /usr/sbin/nologin www-data
+    chown www-data:www-data /var/log/xray
+
+    local services=("vmess" "vless" "trojan" "ssh" "zivpn")
+    for s in "${services[@]}"; do
+        local base="/etc/lunatic/$s"
+        mkdir -p "$base"/{ip,detail,quota/{usage,used,today,last}}
+        mkdir -p "/etc/limit/$s"
+    done
+
+    # Trial files
+    local TRIAL="/etc/lunatic/triall"
+    mkdir -p "$TRIAL"
+    for f in ziv-triall.json ssh-triall.json vme-triall.json vle-triall.json tro-triall.json; do
+        [[ ! -f "$TRIAL/$f" ]] && echo "[]" > "$TRIAL/$f"
+    done
+
+    # Telegram config
+    local TELE="/etc/lunatic/telegram.json"
+    if [[ ! -f "$TELE" ]]; then
+        cat > "$TELE" <<'EOF'
+{
+  "monitor": { "bot_key": "", "chat_id": "" },
+  "main":    { "bot_key": "", "chat_id": "" }
+}
+EOF
+    fi
+
+    # Log files
+    for log in /var/log/xray/access.log /var/log/xray/error.log \
+                /var/log/auth.log /var/log/kern.log /var/log/mail.log \
+                /var/log/user.log /var/log/cron.log; do
+        touch "$log"
+    done
+
+    [[ ! -f /var/lib/luna/ipvps.conf ]] && echo "IP=" > /var/lib/luna/ipvps.conf
+
+    # Simpan IP VPS
+    curl -s --max-time 8 ifconfig.me > /etc/xray/ipvps 2>/dev/null
+    touch /etc/xray/domain
+}
 
 # ══════════════════════════════════════════════
 #              DOMAIN MENU
 # ══════════════════════════════════════════════
 DOMAIN_MENU() {
-clear
-echo ""
-echo -e "$LINE"
-echo -e "  ${CYAN}▌${NC}  ${BOLD}${WHITE}  SETUP DOMAIN TUNNELING${NC}"
-echo -e "$LINE"
-echo -e "    ${CYAN}[1]${NC}  ${WHITE}Random Domain${NC}    ${DIM}(auto-generated via Cloudflare)${NC}"
-echo -e "    ${CYAN}[2]${NC}  ${WHITE}Custom Domain${NC}    ${DIM}(point your own domain to this IP)${NC}"
-echo -e "$LINE"
-echo ""
-printf "  ${WHITE}→${NC}  ${CYAN}Select${NC} ${DIM}[1-2]${NC} : "
-read -r pilih
+    clear
+    echo ""
+    echo -e "$LINE"
+    echo -e "  ${CYAN}▌${NC}  ${BOLD}${WHITE}  DIWAN TUNNELING — SETUP DOMAIN${NC}"
+    echo -e "$LINE2"
+    echo -e "    ${CYAN}[1]${NC}  ${WHITE}Domain Random${NC}    ${DIM}(auto-generate via Cloudflare)${NC}"
+    echo -e "    ${CYAN}[2]${NC}  ${WHITE}Domain Custom${NC}    ${DIM}(domain sendiri, arahkan A record ke IP ini)${NC}"
+    echo -e "$LINE"
+    echo ""
+    printf "  ${GOLD}→${NC}  ${CYAN}Pilih${NC} ${DIM}[1-2]${NC} : "
+    read -r pilih
 
-case $pilih in
-1)
-    DOMENS_SETUP
-    ;;
-2)
-    CUSTOM_DOMAIN
-    ;;
-*)
-    print_error "Invalid option. Please choose 1 or 2."
-    sleep 2
-    DOMAIN_MENU
-    ;;
-esac
+    case $pilih in
+        1) DOMENS_SETUP ;;
+        2) CUSTOM_DOMAIN ;;
+        *)
+            print_error "Pilihan tidak valid. Pilih 1 atau 2."
+            sleep 1
+            DOMAIN_MENU ;;
+    esac
 }
 
 # ══════════════════════════════════════════════
 #              OPSI 1: RANDOM DOMAIN
 # ══════════════════════════════════════════════
 DOMENS_SETUP() {
-clear
+    clear
+    print_install "DIWAN TUNNELING — Generate Domain Random"
 
-SUBDOMAIN=$(tr -dc a-z0-9 </dev/urandom | head -c 5)
-RECORD="$SUBDOMAIN.$DOMAIN"
+    local SUBDOMAIN RECORD ZONE_ID RECORD_ID
+    SUBDOMAIN=$(tr -dc a-z0-9 </dev/urandom | head -c 6)
+    RECORD="${SUBDOMAIN}.${DOMAIN}"
 
-ZONE_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$DOMAIN" \
- -H "X-Auth-Email: $CF_ID" \
- -H "X-Auth-Key: $CF_KEY" \
- -H "Content-Type: application/json" | jq -r .result[0].id)
+    print_info "Menghubungi Cloudflare API..."
 
-RECORD_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=A&name=$RECORD" \
- -H "X-Auth-Email: $CF_ID" \
- -H "X-Auth-Key: $CF_KEY" \
- -H "Content-Type: application/json" | jq -r .result[0].id)
+    ZONE_ID=$(curl -s --max-time 15 -X GET \
+        "https://api.cloudflare.com/client/v4/zones?name=$DOMAIN" \
+        -H "X-Auth-Email: $CF_ID" \
+        -H "X-Auth-Key: $CF_KEY" \
+        -H "Content-Type: application/json" | jq -r .result[0].id)
 
-if [[ "$RECORD_ID" == "null" ]]; then
-  print_info "Adding domain: $RECORD"
-  curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
-   -H "X-Auth-Email: $CF_ID" \
-   -H "X-Auth-Key: $CF_KEY" \
-   -H "Content-Type: application/json" \
-   --data "{\"type\":\"A\",\"name\":\"$RECORD\",\"content\":\"$IPVPS\",\"ttl\":120,\"proxied\":false}" > /dev/null
-else
-  print_info "Updating domain: $RECORD"
-  curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID" \
-   -H "X-Auth-Email: $CF_ID" \
-   -H "X-Auth-Key: $CF_KEY" \
-   -H "Content-Type: application/json" \
-   --data "{\"type\":\"A\",\"name\":\"$RECORD\",\"content\":\"$IPVPS\",\"ttl\":120,\"proxied\":false}" > /dev/null
-fi
+    if [[ -z "$ZONE_ID" || "$ZONE_ID" == "null" ]]; then
+        print_error "Gagal ambil Zone ID Cloudflare. Cek koneksi."
+        sleep 2; DOMAIN_MENU; return
+    fi
 
-echo "$RECORD" | tee -a /etc/xray/domain ~/domain >/dev/null
+    RECORD_ID=$(curl -s --max-time 15 -X GET \
+        "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=A&name=$RECORD" \
+        -H "X-Auth-Email: $CF_ID" \
+        -H "X-Auth-Key: $CF_KEY" \
+        -H "Content-Type: application/json" | jq -r .result[0].id)
 
-clear
-echo ""
-echo -e "$LINE"
-echo -e "  ${GREEN}✔${NC}  ${BOLD}${WHITE}Domain Online${NC}"
-echo -e "$LINE"
-printf "    ${CYAN}%-14s${NC}  ${DIM}│${NC}  ${GOLD}%s${NC}\n" "Domain" "$RECORD"
-echo -e "$LINE_THIN"
-echo -e "    ${CYAN}➤${NC}  UDP ZiVPN"
-echo -e "    ${CYAN}➤${NC}  UDP Custom"
-echo -e "    ${CYAN}➤${NC}  SSH / WebSocket / OpenVPN"
-echo -e "    ${CYAN}➤${NC}  Xray VMess / VLESS / Trojan"
-echo -e "$LINE"
-sleep 3
+    local payload="{\"type\":\"A\",\"name\":\"$RECORD\",\"content\":\"$IPVPS\",\"ttl\":120,\"proxied\":false}"
+
+    if [[ "$RECORD_ID" == "null" || -z "$RECORD_ID" ]]; then
+        print_info "Menambah DNS record: $RECORD"
+        curl -s --max-time 15 -X POST \
+            "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+            -H "X-Auth-Email: $CF_ID" -H "X-Auth-Key: $CF_KEY" \
+            -H "Content-Type: application/json" --data "$payload" > /dev/null
+    else
+        print_info "Update DNS record: $RECORD"
+        curl -s --max-time 15 -X PUT \
+            "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID" \
+            -H "X-Auth-Email: $CF_ID" -H "X-Auth-Key: $CF_KEY" \
+            -H "Content-Type: application/json" --data "$payload" > /dev/null
+    fi
+
+    # fix: pakai > bukan tee -a (tidak append, langsung replace)
+    echo "$RECORD" > /etc/xray/domain
+    echo "$RECORD" > /root/domain
+
+    clear
+    echo ""
+    echo -e "$LINE"
+    echo -e "  ${GREEN}✔${NC}  ${BOLD}${WHITE}Domain Diwan Tunneling Aktif!${NC}"
+    echo -e "$LINE2"
+    printf "  ${CYAN}%-16s${NC}  ${DIM}│${NC}  ${GOLD}%s${NC}\n" "Domain"    "$RECORD"
+    printf "  ${CYAN}%-16s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n" "IP Server" "$IPVPS"
+    echo -e "$LINE_THIN"
+    echo -e "    ${GREEN}➤${NC}  UDP ZiVPN          ${GREEN}➤${NC}  UDP Custom"
+    echo -e "    ${GREEN}➤${NC}  SSH / WebSocket    ${GREEN}➤${NC}  OpenVPN"
+    echo -e "    ${GREEN}➤${NC}  Xray VMess/VLESS   ${GREEN}➤${NC}  Trojan"
+    echo -e "$LINE"
+    sleep 3
 }
 
 # ══════════════════════════════════════════════
 #              OPSI 2: CUSTOM DOMAIN
 # ══════════════════════════════════════════════
 CUSTOM_DOMAIN() {
-clear
-echo ""
-echo -e "$LINE"
-echo -e "  ${CYAN}▌${NC}  ${BOLD}${WHITE}  CUSTOM DOMAIN${NC}"
-echo -e "$LINE"
-echo -e "    ${CYAN}➤${NC}  Make sure your domain A record points to this server IP"
-echo -e "    ${CYAN}➤${NC}  IP of this server: ${GOLD}$(curl -s ipv4.icanhazip.com)${NC}"
-echo -e "$LINE"
-echo ""
-printf "  ${WHITE}→${NC}  ${CYAN}Domain${NC} : "
-read -r CDOMAIN
+    clear
+    echo ""
+    echo -e "$LINE"
+    echo -e "  ${CYAN}▌${NC}  ${BOLD}${WHITE}  DIWAN TUNNELING — CUSTOM DOMAIN${NC}"
+    echo -e "$LINE2"
+    echo -e "    ${CYAN}➤${NC}  Pastikan A Record domain sudah diarahkan ke IP server"
+    echo -e "    ${CYAN}➤${NC}  IP Server: ${GOLD}$(curl -s --max-time 8 ipv4.icanhazip.com 2>/dev/null)${NC}"
+    echo -e "$LINE"
+    echo ""
+    printf "  ${GOLD}→${NC}  ${CYAN}Masukkan Domain${NC} : "
+    read -r CDOMAIN
 
-if [[ -z "$CDOMAIN" ]]; then
-  print_error "Domain cannot be empty."
-  sleep 2
-  CUSTOM_DOMAIN
-fi
+    if [[ -z "$CDOMAIN" ]]; then
+        print_error "Domain tidak boleh kosong."
+        sleep 1; CUSTOM_DOMAIN; return
+    fi
 
-echo "$CDOMAIN" | tee -a /etc/xray/domain ~/domain >/dev/null
-print_ok "Custom domain set: ${GOLD}$CDOMAIN${NC}"
-sleep 2
+    # fix: pakai > bukan tee -a
+    echo "$CDOMAIN" > /etc/xray/domain
+    echo "$CDOMAIN" > /root/domain
+    print_ok "Domain custom aktif: ${GOLD}$CDOMAIN${NC}"
+    sleep 2
 }
 
-
 # ══════════════════════════════════════════════
-#              SSL SETUP
+#              SSL SETUP — DENGAN RETRY 3x
 # ══════════════════════════════════════════════
 SSL_SETUP() {
     clear
-    print_install "Installing SSL Certificate"
+    print_install "DIWAN TUNNELING — SSL Certificate (Auto-Retry)"
 
-    if [[ ! -f /root/domain ]]; then
-        print_error "Domain file not found at /root/domain!"
+    local domain
+    domain=$(cat /etc/xray/domain 2>/dev/null || cat /root/domain 2>/dev/null)
+    if [[ -z "$domain" ]]; then
+        print_error "Domain belum diset! Setup domain dulu."
         return 1
     fi
 
-    domain=$(cat /root/domain)
+    print_info "Domain: ${GOLD}$domain${NC}"
 
-    webserver_port=$(lsof -i:80 | awk 'NR==2 {print $1}')
-    if [[ -n "$webserver_port" ]]; then
-        print_info "Stopping $webserver_port on port 80..."
-        systemctl stop "$webserver_port" >/dev/null 2>&1
-    fi
+    # Hentikan webserver sementara
+    for svc in nginx apache2 lighttpd; do
+        systemctl stop "$svc" >/dev/null 2>&1
+    done
 
-    systemctl stop nginx >/dev/null 2>&1
+    (/root/.acme.sh/acme.sh --upgrade --auto-upgrade >/dev/null 2>&1) & \
+        loading $! "Upgrade acme.sh"
+    (/root/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null 2>&1) & \
+        loading $! "Set CA ke Let's Encrypt"
 
-    (/root/.acme.sh/acme.sh --upgrade --auto-upgrade >/dev/null 2>&1) & loading $! "Upgrading acme.sh"
-    (/root/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null 2>&1) & loading $! "Setting CA to Let's Encrypt"
+    # Retry SSL 3x
+    local max_attempts=3 attempt=1 ssl_ok=0
+    while [[ $attempt -le $max_attempts ]]; do
+        print_info "Percobaan SSL ke-${attempt}/${max_attempts} untuk ${GOLD}$domain${NC}..."
+        /root/.acme.sh/acme.sh --issue -d "$domain" --standalone -k ec-256 \
+            --force >/dev/null 2>&1
+        if [[ $? -eq 0 ]]; then ssl_ok=1; break; fi
+        if [[ $attempt -lt $max_attempts ]]; then
+            print_warn "Gagal, tunggu 10 detik..."
+            sleep 10
+        fi
+        (( attempt++ ))
+    done
 
-    print_info "Issuing SSL certificate for ${GOLD}$domain${NC}"
-    /root/.acme.sh/acme.sh --issue -d "$domain" --standalone -k ec-256
-    if [[ $? -ne 0 ]]; then
-        print_error "Failed to obtain SSL certificate from Let's Encrypt"
+    if [[ $ssl_ok -eq 0 ]]; then
+        print_error "SSL gagal setelah $max_attempts percobaan."
+        print_warn "Kemungkinan DNS belum propagasi. Coba lagi beberapa menit."
         return 1
     fi
 
     (~/.acme.sh/acme.sh --installcert -d "$domain" \
         --fullchainpath /etc/xray/xray.crt \
         --keypath /etc/xray/xray.key \
-        --ecc >/dev/null 2>&1) & loading $! "Installing certificate to Xray"
+        --ecc >/dev/null 2>&1) & loading $! "Install sertifikat ke Xray"
 
-    chmod 600 /etc/xray/xray.key /etc/xray/xray.crt
+    chmod 600 /etc/xray/xray.key /etc/xray/xray.crt 2>/dev/null
 
-    print_success "SSL certificate installed for $domain"
-}
+    # Auto-renew hook tanpa downtime
+    cat > /etc/diwan/ssl-renew-hook.sh 2>/dev/null <<'HOOK'
+#!/bin/bash
+cat /etc/xray/xray.crt /etc/xray/xray.key > /etc/haproxy/hap.pem 2>/dev/null
+systemctl reload haproxy 2>/dev/null || systemctl restart haproxy 2>/dev/null
+systemctl restart xray nginx 2>/dev/null
+echo "[$(date)] SSL renewed — Diwan Tunneling" >> /var/log/diwan-ssl-renew.log
+HOOK
+    mkdir -p /etc/diwan
+    chmod +x /etc/diwan/ssl-renew-hook.sh 2>/dev/null
 
-# ══════════════════════════════════════════════
-#              FOLDER SETUP
-# ══════════════════════════════════════════════
-FOLDER_SETUP() {
+    /root/.acme.sh/acme.sh --install-cert -d "$domain" \
+        --fullchainpath /etc/xray/xray.crt \
+        --keypath /etc/xray/xray.key \
+        --reloadcmd "bash /etc/diwan/ssl-renew-hook.sh" \
+        --ecc >/dev/null 2>&1
 
-    # =========================
-    # MAIN DIR
-    # =========================
-    local main_dirs=(
-        "/etc/xray"
-        "/var/lib/luna"
-        "/etc/lunatic"
-        "/etc/limit"
-        "/etc/zivpn"
-        "/usr/local/bin"
-    )
+    cat > /etc/cron.d/diwan_ssl_renew <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+0 3 * * * root /root/.acme.sh/acme.sh --cron --home /root/.acme.sh >> /var/log/diwan-ssl-renew.log 2>&1
+CRON
 
-    for dir in "${main_dirs[@]}"; do
-        mkdir -p "$dir"
-    done
-
-    # =========================
-    # SERVICES
-    # =========================
-    local services=("vmess" "vless" "trojan" "ssh" "zivpn")
-
-    for s in "${services[@]}"; do
-        base="/etc/lunatic/$s"
-
-        mkdir -p "$base/ip"
-        mkdir -p "$base/detail"
-        mkdir -p "$base/quota/usage"
-        mkdir -p "$base/quota/used"
-        mkdir -p "$base/quota/today"
-        mkdir -p "$base/quota/last"
-    done
-
-    # =========================
-    # TRIALL (JSON BASED)
-    # =========================
-    TRIAL="/etc/lunatic/triall"
-    mkdir -p "$TRIAL"
-
-    declare -a trial_files=(
-        "ziv-triall.json"
-        "ssh-triall.json"
-        "vme-triall.json"
-        "vle-triall.json"
-        "tro-triall.json"
-    )
-
-    for f in "${trial_files[@]}"; do
-        file="$TRIAL/$f"
-        [[ ! -f "$file" ]] && echo "[]" > "$file"
-    done
-
-    # =========================
-    # TELEGRAM CONFIG (UNIFIED)
-    # =========================
-    TELE="/etc/lunatic/telegram.json"
-
-    if [[ ! -f "$TELE" ]]; then
-        cat > "$TELE" <<EOF
-{
-  "monitor": {
-    "bot_key": "",
-    "chat_id": ""
-  },
-  "main": {
-    "bot_key": "",
-    "chat_id": ""
-  }
-}
-EOF
-    fi
-
-    # =========================
-    # LIMIT DIR
-    # =========================
-    for s in "${services[@]}"; do
-        mkdir -p "/etc/limit/$s"
-    done
-
-    # =========================
-    # VPS CONFIG
-    # =========================
-    [[ ! -f /var/lib/luna/ipvps.conf ]] && echo "IP=" > /var/lib/luna/ipvps.conf
-
+    print_success "SSL certificate untuk $domain"
+    return 0
 }
 
 # ══════════════════════════════════════════════
 #              XRAY SETUP
 # ══════════════════════════════════════════════
 XRAY_SETUP() {
-    clear
-    print_install "Installing Xray Core v26"
-
     local domainSock_dir="/run/xray"
     [[ ! -d $domainSock_dir ]] && mkdir -p "$domainSock_dir"
-    id www-data >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin www-data
-    chown www-data:www-data "$domainSock_dir"
+    id www-data >/dev/null 2>&1 || \
+        useradd --system --no-create-home --shell /usr/sbin/nologin www-data
+    chown www-data:www-data "$domainSock_dir" 2>/dev/null
 
-    (bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u www-data >/dev/null 2>&1) & loading $! "Installing Xray Core"
-    (wget -q -O /etc/xray/config.json "${GIT_REPO}configure/config.json") & loading $! "Downloading Xray config"
-    (wget -q -O /etc/systemd/system/runn.service "${GIT_REPO}configure/runn.service") & loading $! "Downloading runn.service"
+    bash -c "$(curl -L --max-time 60 \
+        https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" \
+        @ install -u www-data >/dev/null 2>&1
 
-    if [[ ! -f /etc/xray/domain ]]; then
-        print_error "Domain file not found at /etc/xray/domain"
-        return 1
-    fi
-    local domain=$(cat /etc/xray/domain)
-    local IPVS=$(cat /etc/xray/ipvps)
+    wget -q --timeout=30 -O /etc/xray/config.json "${GIT_REPO}configure/config.json" 2>/dev/null
+    wget -q --timeout=30 -O /etc/systemd/system/runn.service "${GIT_REPO}configure/runn.service" 2>/dev/null
 
-    print_success "Xray Core v26"
-    clear
+    local domain
+    domain=$(cat /etc/xray/domain 2>/dev/null)
+    [[ -z "$domain" ]] && { print_error "Domain belum diset"; return 1; }
 
-    curl -s ipinfo.io/city >> /etc/xray/city
-    curl -s ipinfo.io/org | cut -d " " -f 2- >> /etc/xray/isp
+    curl -s --max-time 8 ipinfo.io/city >> /etc/xray/city 2>/dev/null
+    curl -s --max-time 8 ipinfo.io/org | cut -d " " -f 2- >> /etc/xray/isp 2>/dev/null
 
-    clear
-    print_install "Downloading Config & Service Files"
+    mkdir -p /etc/haproxy /etc/nginx/conf.d /etc/nginx/sites-available \
+             /etc/nginx/sites-enabled /usr/local/share/xray
 
-    # Pastikan semua direktori config ada sebelum download
-    mkdir -p /etc/haproxy /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled /usr/local/share/xray
-    (wget -q -O /etc/haproxy/haproxy.cfg "${GIT_REPO}configure/haproxy.cfg") & loading $! "Downloading haproxy.cfg"
-    (wget -q -O /etc/nginx/conf.d/xray.conf "${GIT_REPO}configure/xray.conf") & loading $! "Downloading xray.conf"
-    (curl -s "${GIT_REPO}configure/nginx.conf" > /etc/nginx/nginx.conf) & loading $! "Downloading nginx.conf"
+    wget -q --timeout=30 -O /etc/haproxy/haproxy.cfg "${GIT_REPO}configure/haproxy.cfg" 2>/dev/null
+    wget -q --timeout=30 -O /etc/nginx/conf.d/xray.conf "${GIT_REPO}configure/xray.conf" 2>/dev/null
+    curl -s --max-time 20 "${GIT_REPO}configure/nginx.conf" > /etc/nginx/nginx.conf 2>/dev/null
 
-    sed -i "s/xxx/${domain}/g" /etc/haproxy/haproxy.cfg
-    sed -i "s/xxx/${domain}/g" /etc/nginx/conf.d/xray.conf
+    sed -i "s/xxx/${domain}/g" /etc/haproxy/haproxy.cfg 2>/dev/null
+    sed -i "s/xxx/${domain}/g" /etc/nginx/conf.d/xray.conf 2>/dev/null
 
-    # Pastikan cert ada sebelum buat hap.pem (SSL mungkin belum di-issue saat ini)
     if [[ -f /etc/xray/xray.crt && -f /etc/xray/xray.key ]]; then
         cat /etc/xray/xray.crt /etc/xray/xray.key > /etc/haproxy/hap.pem
-    else
-        print_info "SSL cert not yet issued — hap.pem will be created after SSL setup"
+        chmod 600 /etc/haproxy/hap.pem
     fi
 
     cat > /etc/systemd/system/xray.service <<EOF
 [Unit]
-Description=Xray Service
+Description=Xray Service — Diwan Tunneling
 After=network.target
 [Service]
 User=www-data
@@ -806,51 +689,22 @@ LimitNOFILE=1000000
 WantedBy=multi-user.target
 EOF
 
-    chmod +x /etc/systemd/system/runn.service
-    rm -rf /etc/systemd/system/xray.service.d
-
-    # Buat hap.pem dari SSL cert yang sudah di-install
-      if [[ -f /etc/xray/xray.crt && -f /etc/xray/xray.key ]]; then
-          cat /etc/xray/xray.crt /etc/xray/xray.key > /etc/haproxy/hap.pem
-          chmod 600 /etc/haproxy/hap.pem
-          print_ok "HAProxy PEM certificate created"
-      fi
-      print_success "Xray config, service and configs"
+    chmod +x /etc/systemd/system/runn.service 2>/dev/null
+    rm -rf /etc/systemd/system/xray.service.d 2>/dev/null
+    systemctl daemon-reload >/dev/null 2>&1
 }
 
 # ══════════════════════════════════════════════
-#              PASSWORD DEFAULT SETUP
+#              PASSWORD & SSH POLICY
 # ══════════════════════════════════════════════
 PW_DEFAULT() {
-    clear
-    print_install "Configuring SSH & Password Policy"
-
-    local password_url="https://raw.githubusercontent.com/diwanbhoikfost/v2/main/configure/password"
-    (wget -q -O /etc/pam.d/common-password "$password_url") & loading $! "Downloading password policy"
-    chmod 644 /etc/pam.d/common-password
+    local password_url="${GIT_REPO}configure/password"
+    wget -q --timeout=20 -O /etc/pam.d/common-password "$password_url" 2>/dev/null
+    chmod 644 /etc/pam.d/common-password 2>/dev/null
 
     DEBIAN_FRONTEND=noninteractive dpkg-reconfigure keyboard-configuration >/dev/null 2>&1
 
-    debconf-set-selections <<EOF
-keyboard-configuration keyboard-configuration/layout select English
-keyboard-configuration keyboard-configuration/layoutcode string us
-keyboard-configuration keyboard-configuration/model select Generic 105-key (Intl) PC
-keyboard-configuration keyboard-configuration/modelcode string pc105
-keyboard-configuration keyboard-configuration/variant select English
-keyboard-configuration keyboard-configuration/variantcode string
-keyboard-configuration keyboard-configuration/store_defaults_in_debconf_db boolean true
-keyboard-configuration keyboard-configuration/altgr select The default for the keyboard layout
-keyboard-configuration keyboard-configuration/compose select No compose key
-keyboard-configuration keyboard-configuration/switch select No temporary switch
-keyboard-configuration keyboard-configuration/toggle select No toggling
-keyboard-configuration keyboard-configuration/ctrl_alt_bksp boolean false
-keyboard-configuration keyboard-configuration/unsupported_config_layout boolean true
-keyboard-configuration keyboard-configuration/unsupported_config_options boolean true
-keyboard-configuration keyboard-configuration/unsupported_layout boolean true
-keyboard-configuration keyboard-configuration/unsupported_options boolean true
-EOF
-
-    cat > /etc/systemd/system/rc-local.service <<EOF
+    cat > /etc/systemd/system/rc-local.service <<'EOF'
 [Unit]
 Description=/etc/rc.local compatibility
 ConditionPathExists=/etc/rc.local
@@ -867,7 +721,7 @@ SysVStartPriority=99
 WantedBy=multi-user.target
 EOF
 
-    cat > /etc/rc.local <<EOF
+    cat > /etc/rc.local <<'EOF'
 #!/bin/bash
 echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6
 exit 0
@@ -877,130 +731,114 @@ EOF
     systemctl enable rc-local.service >/dev/null 2>&1
     systemctl start rc-local.service >/dev/null 2>&1
 
-    echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6
-    ln -sf /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
-    sed -i 's/^AcceptEnv/#AcceptEnv/' /etc/ssh/sshd_config
+    echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null
+    ln -sf /usr/share/zoneinfo/Asia/Jakarta /etc/localtime 2>/dev/null
+    sed -i 's/^#AcceptEnv/AcceptEnv/' /etc/ssh/sshd_config 2>/dev/null
     systemctl restart ssh >/dev/null 2>&1
-
-    print_success "SSH config & Password Policy"
 }
-
 
 # ══════════════════════════════════════════════
 #              LIMIT HANDLER
 # ══════════════════════════════════════════════
 LIMIT_HANDLER() {
-    clear
-    print_install "Installing LimitHandler"
-
-    (wget -q https://raw.githubusercontent.com/diwanbhoikfost/v2/main/LimitHandler/install.sh && chmod +x install.sh && ./install.sh >/dev/null 2>&1) & loading $! "Installing LimitHandler"
+    wget -q --timeout=30 \
+        https://raw.githubusercontent.com/diwanbhoikfost/v2/main/LimitHandler/install.sh \
+        2>/dev/null && chmod +x install.sh && ./install.sh >/dev/null 2>&1
 
     mkdir -p /usr/local/lunatic
-    (wget -q -O /usr/local/lunatic/udp-mini "${GIT_REPO}configure/udp-mini") & loading $! "Downloading udp-mini binary"
-    chmod +x /usr/local/lunatic/udp-mini
+    wget -q --timeout=30 -O /usr/local/lunatic/udp-mini \
+        "${GIT_REPO}configure/udp-mini" 2>/dev/null
+    chmod +x /usr/local/lunatic/udp-mini 2>/dev/null
 
     for i in 1 2 3; do
-        (wget -q -O /etc/systemd/system/udp-mini-$i.service "${GIT_REPO}configure/udp-mini-$i.service") & loading $! "Downloading udp-mini-$i service"
+        wget -q --timeout=30 -O /etc/systemd/system/udp-mini-$i.service \
+            "${GIT_REPO}configure/udp-mini-$i.service" 2>/dev/null
         systemctl daemon-reload >/dev/null 2>&1
         systemctl enable --now udp-mini-$i >/dev/null 2>&1
     done
-
-    print_success "LimitHandler installed"
 }
 
 # ══════════════════════════════════════════════
 #              SSHD SETUP
 # ══════════════════════════════════════════════
-SSHD_SETUP(){
-    clear
-    print_install "Configuring SSHD"
-
-    (wget -q -O /etc/ssh/sshd_config "${GIT_REPO}configure/sshd" >/dev/null 2>&1) & loading $! "Downloading SSHD config"
-    chmod 700 /etc/ssh/sshd_config
-
-    (/etc/init.d/ssh restart >/dev/null 2>&1 && systemctl restart ssh >/dev/null 2>&1) & loading $! "Restarting SSH"
-
-    print_success "SSHD configured"
+SSHD_SETUP() {
+    wget -q --timeout=20 -O /etc/ssh/sshd_config "${GIT_REPO}configure/sshd" 2>/dev/null
+    chmod 700 /etc/ssh/sshd_config 2>/dev/null
+    /etc/init.d/ssh restart >/dev/null 2>&1
+    systemctl restart ssh >/dev/null 2>&1
 }
 
 # ══════════════════════════════════════════════
 #              DROPBEAR SETUP
 # ══════════════════════════════════════════════
-DROPBEAR_SETUP(){
-    clear
-    print_install "Installing Dropbear v2019.78"
-
-#    (wget -q ${GIT_REPO}dropbear19.sh && chmod +x dropbear19.sh && ./dropbear19.sh >/dev/null 2>&1) & loading $! "Running Dropbear 2019 installer"
-    apt purge -y dropbear
+DROPBEAR_SETUP() {
+    apt purge -y dropbear >/dev/null 2>&1
     rm -f /usr/sbin/dropbear
-    wget -qO- https://raw.githubusercontent.com/diwanbhoikfost/v2/main/dropbear19.sh | sed 's/\r$//' | bash >/dev/null 2>&1 & loading $! "Running Dropbear 2019 installer"  
-    (wget -q -O /etc/default/dropbear "${GIT_REPO}configure/dropbear.conf") & loading $! "Downloading Dropbear config"
-
-    chmod +x /etc/default/dropbear
-    chmod 600 /etc/default/dropbear
-
-    (/etc/init.d/dropbear restart >/dev/null 2>&1) & loading $! "Restarting Dropbear"
-
-    print_success "Dropbear installed"
+    wget -qO- --timeout=30 \
+        https://raw.githubusercontent.com/diwanbhoikfost/v2/main/dropbear19.sh \
+        | sed 's/\r$//' | bash >/dev/null 2>&1
+    wget -q --timeout=20 -O /etc/default/dropbear \
+        "${GIT_REPO}configure/dropbear.conf" 2>/dev/null
+    chmod 600 /etc/default/dropbear 2>/dev/null
+    chmod 755 /usr/sbin/dropbear 2>/dev/null
+    /etc/init.d/dropbear restart >/dev/null 2>&1
 }
 
 # ══════════════════════════════════════════════
 #              VNSTATS SETUP
 # ══════════════════════════════════════════════
-vnSTATS_SETUP(){
-    clear
-    print_install "Installing Bandwidth Monitor — Vnstat"
-
+vnSTATS_SETUP() {
+    apt -y install vnstat libsqlite3-dev >/dev/null 2>&1
     /etc/init.d/vnstat restart >/dev/null 2>&1
 
-    (wget -q https://humdi.net/vnstat/vnstat-2.6.tar.gz) & loading $! "Downloading vnstat 2.6 source"
-    (tar zxvf vnstat-2.6.tar.gz >/dev/null 2>&1) & loading $! "Extracting vnstat source"
+    wget -q --timeout=60 https://humdi.net/vnstat/vnstat-2.6.tar.gz 2>/dev/null
+    tar zxvf vnstat-2.6.tar.gz >/dev/null 2>&1
 
-    cd vnstat-2.6
-    (./configure --prefix=/usr --sysconfdir=/etc >/dev/null 2>&1 && make >/dev/null 2>&1 && make install >/dev/null 2>&1) & loading $! "Compiling and installing vnstat"
-    cd
+    # fix: gunakan subshell supaya cd tidak ubah dir global
+    (
+        cd vnstat-2.6 2>/dev/null || exit 0
+        ./configure --prefix=/usr --sysconfdir=/etc >/dev/null 2>&1
+        make >/dev/null 2>&1
+        make install >/dev/null 2>&1
+    )
+    cd /root || true
 
-    vnstat -u -i $NET >/dev/null 2>&1
-    sed -i "s/Interface \"eth0\"/Interface \"$NET\"/g" /etc/vnstat.conf
-    chown vnstat:vnstat /var/lib/vnstat -R
-
+    vnstat -u -i "$NET" >/dev/null 2>&1
+    sed -i "s/Interface \"eth0\"/Interface \"$NET\"/g" /etc/vnstat.conf 2>/dev/null
+    chown vnstat:vnstat /var/lib/vnstat -R 2>/dev/null
     systemctl enable vnstat >/dev/null 2>&1
     /etc/init.d/vnstat restart >/dev/null 2>&1
 
     rm -f /root/vnstat-2.6.tar.gz
     rm -rf /root/vnstat-2.6
-
-    print_success "Vnstat installed"
 }
 
 # ══════════════════════════════════════════════
 #              OPENVPN SETUP
 # ══════════════════════════════════════════════
 OPVPN_SETUP() {
-    clear
-    print_install "Installing OpenVPN"
-
-    (wget -q ${GIT_REPO}configure/openvpn && chmod +x openvpn && ./openvpn >/dev/null 2>&1) & loading $! "Installing OpenVPN"
-    (/etc/init.d/openvpn restart >/dev/null 2>&1) & loading $! "Restarting OpenVPN"
-
-    print_success "OpenVPN installed"
+    wget -q --timeout=30 "${GIT_REPO}configure/openvpn" 2>/dev/null
+    chmod +x openvpn 2>/dev/null
+    ./openvpn >/dev/null 2>&1
+    /etc/init.d/openvpn restart >/dev/null 2>&1
 }
 
-
 # ══════════════════════════════════════════════
-#              RCLONE SETUP
+#              RCLONE & WONDERSHAPER SETUP
 # ══════════════════════════════════════════════
 RCLONE_SETUP() {
-    clear
-    print_install "Installing Wondershaper & Rclone"
-    (cd /bin && git clone https://github.com/LunaticTunnel/wondershaper.git >/dev/null 2>&1 && \
-     cd wondershaper && sudo make install >/dev/null 2>&1 && cd ~ && rm -rf wondershaper) & loading $! "Installing Wondershaper"
+    apt install rclone -y >/dev/null 2>&1
+
+    # fix: clone ke /tmp bukan /bin
+    (cd /tmp && git clone https://github.com/LunaticTunnel/wondershaper.git \
+        >/dev/null 2>&1 && cd wondershaper && make install >/dev/null 2>&1) || true
 
     echo > /home/files
 
-    (apt install msmtp-mta ca-certificates bsd-mailx -y >/dev/null 2>&1) & loading $! "Installing mail tools"
+    apt install msmtp-mta ca-certificates bsd-mailx -y >/dev/null 2>&1
 
-    cat <<EOF > /etc/msmtprc
+    # fix: tidak ada credential plaintext — user isi sendiri setelah install
+    cat > /etc/msmtprc <<'MSMTP'
 defaults
 tls on
 tls_starttls on
@@ -1009,271 +847,246 @@ account default
 host smtp.gmail.com
 port 587
 auth on
-user oceantestdigital@gmail.com
-from oceantestdigital@gmail.com
-password jokerman77
+user
+from
+password
 logfile ~/.msmtp.log
-EOF
+MSMTP
+    chmod 600 /etc/msmtprc
 
-    chown -R www-data:www-data /etc/msmtprc
-
-    (wget -q -O /etc/ipserver "${GIT_REPO}configure/ipserver" && bash /etc/ipserver >/dev/null 2>&1) & loading $! "Downloading & running ipserver"
-
-    print_success "Wondershaper and ipserver"
+    wget -q --timeout=30 -O /etc/ipserver "${GIT_REPO}configure/ipserver" 2>/dev/null
+    bash /etc/ipserver >/dev/null 2>&1
 }
 
-
 # ══════════════════════════════════════════════
-#              SWAP RAM SETUP
+#              SWAP + BBR SETUP
 # ══════════════════════════════════════════════
-SWAPRAM_SETUP(){
-    clear
-    print_install "Setting Up Swap RAM 2 GB + TCP BBR"
+SWAPRAM_SETUP() {
+    local gotop_latest
+    gotop_latest=$(curl -s --max-time 15 \
+        https://api.github.com/repos/xxxserxxx/gotop/releases \
+        | grep tag_name | sed -E 's/.*"v(.*)".*/\1/' | head -1)
+    if [[ -n "$gotop_latest" ]]; then
+        local gotop_link="https://github.com/xxxserxxx/gotop/releases/download/v${gotop_latest}/gotop_v${gotop_latest}_linux_amd64.deb"
+        curl -sL --max-time 60 "$gotop_link" -o /tmp/gotop.deb 2>/dev/null
+        dpkg -i /tmp/gotop.deb >/dev/null 2>&1
+    fi
 
-    gotop_latest="$(curl -s https://api.github.com/repos/xxxserxxx/gotop/releases | grep tag_name | sed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
-    gotop_link="https://github.com/xxxserxxx/gotop/releases/download/v$gotop_latest/gotop_v${gotop_latest}_linux_amd64.deb"
+    # fix: cek dulu sebelum buat swap
+    if [[ ! -f /swapfile ]]; then
+        dd if=/dev/zero of=/swapfile bs=1M count=2048 >/dev/null 2>&1
+        mkswap /swapfile >/dev/null 2>&1
+        chown root:root /swapfile
+        chmod 600 /swapfile
+        swapon /swapfile >/dev/null 2>&1
+        # fix: guard jangan dobel di fstab
+        grep -q '/swapfile' /etc/fstab || \
+            echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
+    fi
 
-    (curl -sL "$gotop_link" -o /tmp/gotop.deb && dpkg -i /tmp/gotop.deb >/dev/null 2>&1) & loading $! "Installing gotop monitor"
+    if [[ ! -f /swapfile2 ]]; then
+        fallocate -l 1G /swapfile2 2>/dev/null
+        chmod 600 /swapfile2
+        mkswap /swapfile2 >/dev/null 2>&1
+        swapon /swapfile2 >/dev/null 2>&1
+    fi
 
-    (dd if=/dev/zero of=/swapfile bs=1M count=2048 >/dev/null 2>&1 && \
-     mkswap /swapfile >/dev/null 2>&1 && \
-     chown root:root /swapfile && \
-     chmod 600 /swapfile && \
-     swapon /swapfile >/dev/null 2>&1) & loading $! "Creating 2 GB swap"
-
-    (fallocate -l 1G /swapfile2 && \
-     chmod 600 /swapfile2 && \
-     mkswap /swapfile2 >/dev/null 2>&1 && \
-     swapon /swapfile2 >/dev/null 2>&1) & loading $! "Creating 1 GB swap"
-
-    sed -i '$ i\/swapfile swap swap defaults 0 0' /etc/fstab
-
-    chronyd -q 'server 0.id.pool.ntp.org iburst' >/dev/null 2>&1
-    chronyc sourcestats -v >/dev/null 2>&1
-    chronyc tracking -v >/dev/null 2>&1
-
-    (wget -q ${GIT_REPO}configure/bbr.sh && chmod +x bbr.sh && ./bbr.sh >/dev/null 2>&1) & loading $! "Installing TCP BBR"
-
-    print_success "Swap RAM 2 GB + TCP BBR"
+    wget -q --timeout=30 "${GIT_REPO}configure/bbr.sh" 2>/dev/null
+    chmod +x bbr.sh 2>/dev/null
+    ./bbr.sh >/dev/null 2>&1
 }
 
 # ══════════════════════════════════════════════
 #              FAIL2BAN SETUP
 # ══════════════════════════════════════════════
-FAIL2BAN_SETUP(){
-    clear
-    print_install "Installing Fail2ban & SSH Banner"
+FAIL2BAN_SETUP() {
+    apt -y install fail2ban >/dev/null 2>&1
 
-    (apt -y install fail2ban >/dev/null 2>&1) & loading $! "Installing fail2ban"
+    [[ ! -d /usr/local/ddos ]] && mkdir -p /usr/local/ddos
 
-    if [ -d '/usr/local/ddos' ]; then
-        print_error "Previous DDOS protection version found. Please uninstall it first."
-        return 0
-    else
-        mkdir /usr/local/ddos
-    fi
+    # fix: cek duplikat sebelum append ke sshd_config
+    grep -q "Banner /etc/banner.txt" /etc/ssh/sshd_config 2>/dev/null || \
+        echo "Banner /etc/banner.txt" >> /etc/ssh/sshd_config
 
-    echo "Banner /etc/banner.txt" >> /etc/ssh/sshd_config
-    sed -i 's@DROPBEAR_BANNER=""@DROPBEAR_BANNER="/etc/banner.txt"@g' /etc/default/dropbear
+    sed -i 's@DROPBEAR_BANNER=""@DROPBEAR_BANNER="/etc/banner.txt"@g' \
+        /etc/default/dropbear 2>/dev/null
 
-    (wget -q -O /etc/banner.txt "${GIT_REPO}banner/issue.net") & loading $! "Downloading SSH banner"
+    # Banner default dulu, download override (fallback aman)
+    cat > /etc/banner.txt <<'BANNER'
 
-    print_success "Fail2ban & Issue.net banner"
+  ╔══════════════════════════════════════════╗
+  ║        DIWAN TUNNELING — SSH ACCESS      ║
+  ║     Akses tidak sah dilarang keras!      ║
+  ║     Unauthorized access is prohibited!   ║
+  ╚══════════════════════════════════════════╝
+
+BANNER
+    wget -q --timeout=15 -O /etc/banner.txt "${GIT_REPO}banner/issue.net" 2>/dev/null || true
 }
 
 # ══════════════════════════════════════════════
 #              WEBSOCKET SETUP
 # ══════════════════════════════════════════════
 WEBSOCKET_SETUP() {
-    clear
-    print_install "Installing ePro WebSocket Proxy + GeoIP/GeoSite"
-
     local ws_bin="/usr/bin/ws"
     local tun_conf="/usr/bin/tun.conf"
     local ws_service="/etc/systemd/system/ws.service"
-    local ltvpn_bin="/usr/sbin/ltvpn"
-    local rclone_root="/root/.config/rclone/rclone.conf"
+    local ltvpn_bin="/usr/sbin/ftvpn"
+    local rclone_root="/root/.config/rclone"
     local geosite="/usr/local/share/xray/geosite.dat"
     local geoip="/usr/local/share/xray/geoip.dat"
 
-    (wget -q -O "$ws_bin" "${GIT_REPO}configure/ws") & loading $! "Downloading ws binary"
-    sleep 1
-    (wget -q -O "$tun_conf" "${GIT_REPO}configure/tun.conf") & loading $! "Downloading tun.conf"
-    sleep 1
-    (wget -q -O "$ws_service" "${GIT_REPO}configure/ws.service") & loading $! "Downloading ws.service"
-    sleep 1
-    mkdir -p "$(dirname "$rclone_root")"
-      (wget -q -O "$rclone_root" "${GIT_REPO}configure/rclone.conf") & loading $! "Downloading rclone.conf"
-    sleep 1    
-    (wget -q -O "$ltvpn_bin" "${GIT_REPO}configure/ltvpn") & loading $! "Downloading LTVPN"
-    
-    (wget -q ${GIT_REPO}configure/dirmeluna.sh && chmod +x dirmeluna.sh && ./dirmeluna.sh >/dev/null 2>&1) & loading $! "Setting up ws.py connection"
+    mkdir -p "$rclone_root"
 
-    clear
+    wget -q --timeout=30 -O "$ws_bin"     "${GIT_REPO}configure/ws"         2>/dev/null
+    wget -q --timeout=30 -O "$tun_conf"   "${GIT_REPO}configure/tun.conf"   2>/dev/null
+    wget -q --timeout=30 -O "$ws_service" "${GIT_REPO}configure/ws.service" 2>/dev/null
+    wget -q --timeout=30 -O "$rclone_root/rclone.conf" \
+        "${GIT_REPO}configure/rclone.conf" 2>/dev/null
 
-    chmod +x "$ws_bin"
-    chmod 644 "$tun_conf"
-    chmod +x "$ws_service"
+    wget -q --timeout=30 "${GIT_REPO}configure/dirmeluna.sh" 2>/dev/null
+    chmod +x dirmeluna.sh 2>/dev/null
+    ./dirmeluna.sh >/dev/null 2>&1
 
-    systemctl disable ws >/dev/null 2>&1
-    systemctl stop ws >/dev/null 2>&1
+    chmod +x "$ws_bin" 2>/dev/null
+    chmod 644 "$tun_conf" 2>/dev/null
+    chmod +x "$ws_service" 2>/dev/null
+
+    systemctl daemon-reload >/dev/null 2>&1
     systemctl enable ws >/dev/null 2>&1
-    systemctl start ws >/dev/null 2>&1
     systemctl restart ws >/dev/null 2>&1
     systemctl restart socks >/dev/null 2>&1
 
     mkdir -p /usr/local/share/xray
-    (wget -q -O "$geosite" "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat") & loading $! "Downloading geosite.dat"
-    (wget -q -O "$geoip" "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat") & loading $! "Downloading geoip.dat"
+    wget -q --timeout=60 -O "$geosite" \
+        "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat" \
+        2>/dev/null
+    wget -q --timeout=60 -O "$geoip" \
+        "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat" \
+        2>/dev/null
 
-    clear
+    wget -q --timeout=30 -O "$ltvpn_bin" "${GIT_REPO}configure/ltvpn" 2>/dev/null
+    chmod +x "$ltvpn_bin" 2>/dev/null
 
-#    (wget -q -O "$ltvpn_bin" "${GIT_REPO}configure/ltvpn") & loading $! "Downloading ltvpn binary"
-#    chmod +x "$ltvpn_bin"
-
-    local patterns=(
-        "get_peers" "announce_peer" "find_node"
-        "BitTorrent" "BitTorrent protocol" "peer_id="
-        ".torrent" "announce.php?passkey=" "torrent"
-        "announce" "info_hash"
-    )
+    # Block torrent
+    local patterns=("get_peers" "announce_peer" "find_node" "BitTorrent"
+        "BitTorrent protocol" "peer_id=" ".torrent" "torrent" "announce" "info_hash")
     for pattern in "${patterns[@]}"; do
-        iptables -A FORWARD -m string --string "$pattern" --algo bm -j DROP
+        iptables -A FORWARD -m string --string "$pattern" --algo bm -j DROP 2>/dev/null
     done
 
-    iptables-save > /etc/iptables.up.rules
-    iptables-restore < /etc/iptables.up.rules
+    iptables-save > /etc/iptables.up.rules 2>/dev/null
     netfilter-persistent save >/dev/null 2>&1
     netfilter-persistent reload >/dev/null 2>&1
 
     apt autoclean -y >/dev/null 2>&1
     apt autoremove -y >/dev/null 2>&1
-
-    print_success "ePro WebSocket Proxy + GeoIP/GeoSite"
 }
+
 # ══════════════════════════════════════════════
 #              MENU SETUP
 # ══════════════════════════════════════════════
-function MENU_SETUP() {
-clear
+MENU_SETUP() {
+    local TARGET_DIR="/usr/local/sbin"
 
-TARGET_DIR="/usr/local/sbin"
+    _k1='c2Vj'; _k2='cmV0'; _k3='MTIz'
+    local KEY
+    KEY="$(printf '%s%s%s' "$_k1" "$_k2" "$_k3" | base64 -d)"
 
-_k1='c2Vj'
-_k2='cmV0'
-_k3='MTIz'
-KEY="$(printf '%s%s%s' "$_k1" "$_k2" "$_k3" | base64 -d)"
-
-encrypt_file() {
-  f="$1"
-
-  [ ! -f "$f" ] && return
-
-  grep -q "__PAYLOAD_BELOW__" "$f" 2>/dev/null && return
-
-  tmp="${f}.tmp"
-
-  {
+    encrypt_file() {
+        local f="$1"
+        [[ ! -f "$f" ]] && return
+        grep -q "__PAYLOAD_BELOW__" "$f" 2>/dev/null && return
+        local tmp="${f}.tmp"
+        {
 cat <<'EOF'
 #!/bin/sh
 _k1='c2Vj'
 _k2='cmV0'
 _k3='MTIz'
 KEY="$(printf '%s%s%s' "$_k1" "$_k2" "$_k3" | base64 -d)"
-
 TMPDIR=${TMPDIR:-/tmp}
 dir=$(mktemp -d "$TMPDIR/gztmpXXXX") || exit 1
 trap 'rm -rf "$dir"' EXIT
-
 payload="$dir/app"
-
 sed '1,/^__PAYLOAD_BELOW__$/d' "$0" \
 | openssl enc -aes-256-cbc -d -pbkdf2 -pass pass:"$KEY" 2>/dev/null \
 | gzip -cd > "$payload" || exit 127
-
 chmod +x "$payload"
 exec "$payload" "$@"
-
 __PAYLOAD_BELOW__
 EOF
+            gzip -c9 "$f" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass pass:"$KEY"
+        } > "$tmp" || return
+        chmod +x "$tmp"
+        mv "$tmp" "$f"
+    }
 
-  gzip -c9 "$f" \
-  | openssl enc -aes-256-cbc -pbkdf2 -salt -pass pass:"$KEY"
-  } > "$tmp" || return
+    apt update -y >/dev/null 2>&1
+    apt install -y unzip dos2unix openssl gzip >/dev/null 2>&1
 
-  chmod +x "$tmp"
-  mv "$tmp" "$f"
-}
+    wget -q --timeout=60 \
+        https://raw.githubusercontent.com/diwanbhoikfost/v2/main/feature/LUNAVPN \
+        >/dev/null 2>&1
+    unzip -q LUNAVPN >/dev/null 2>&1
 
-(apt update -y >/dev/null 2>&1 && apt install -y unzip dos2unix openssl gzip >/dev/null 2>&1) & loading $! "Installing required packages"
+    chmod +x menu/* 2>/dev/null
+    mv menu/* "$TARGET_DIR" 2>/dev/null
+    dos2unix "$TARGET_DIR/welcome" >/dev/null 2>&1
 
-(wget -q https://raw.githubusercontent.com/diwanbhoikfost/v2/main/feature/LUNAVPN >/dev/null 2>&1) & loading $! "Downloading LUNAVPN feature package"
-(unzip -q LUNAVPN >/dev/null 2>&1) & loading $! "Extracting LUNAVPN"
+    for f in "$TARGET_DIR"/*; do
+        encrypt_file "$f"
+    done
 
-chmod +x menu/*
-mv menu/* "$TARGET_DIR"
-dos2unix "$TARGET_DIR/welcome" >/dev/null 2>&1
-
-echo ""
-echo -e "  ${CYAN_SOFT}⟳${NC}  ${WHITE}Encrypting scripts...${NC}"
-for f in "$TARGET_DIR"/*; do
-  encrypt_file "$f"
-done
-
-rm -rf menu
-rm -rf LUNAVPN
-
-clear
-echo ""
-echo -e "$LINE"
-echo -e "  ${GREEN}✔${NC}  ${BOLD}${WHITE}Scripts Successfully Updated${NC}"
-echo -e "$LINE"
+    rm -rf menu LUNAVPN 2>/dev/null
 }
 
 # ══════════════════════════════════════════════
 #              BASHRC PROFILE
 # ══════════════════════════════════════════════
 BASHRC_PROFILE() {
-clear
-cat >/root/.profile <<EOF
+    cat > /root/.profile <<'PROFILE'
 if [ "$BASH" ]; then
-if [ -f ~/.bashrc ]; then
-. ~/.bashrc
+    if [ -f ~/.bashrc ]; then
+        . ~/.bashrc
+    fi
 fi
+mesg n 2>/dev/null || true
+if command -v welcome >/dev/null 2>&1; then
+    welcome
 fi
-mesg n || true
-welcome
-EOF
+PROFILE
 }
 
-clear
+# ══════════════════════════════════════════════
+#              CRON SETUP
+# ══════════════════════════════════════════════
+CRON_SETUP() {
+    mkdir -p /etc/diwan
 
-# ══════════════════════════════════════════════
-#              CRON & AUTOSETUP
-# ══════════════════════════════════════════════
-cat > /etc/cron.d/xp_all <<-CRON
+    cat > /etc/cron.d/diwan_xp_all <<'CRON'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 2 0 * * * root /usr/local/sbin/xp
 CRON
 
-cat > /etc/cron.d/cleansheat <<-CRON
+    cat > /etc/cron.d/diwan_cleanlog <<'CRON'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-0 */6 * * * /usr/local/sbin/clearlog
+0 */6 * * * root /usr/local/sbin/clearlog
 CRON
 
-cat > /etc/cron.d/daily_reboot <<-CRON
+    # fix: pakai /sbin/reboot bukan /usr/local/sbin/reboot
+    cat > /etc/cron.d/diwan_daily_reboot <<'CRON'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-0 5 * * * root /usr/local/sbin/reboot
+0 5 * * * root /sbin/reboot
 CRON
 
-service cron restart >/dev/null 2>&1
+    service cron restart >/dev/null 2>&1
+    echo "5" > /home/daily_reboot
 
-echo "5" > /home/daily_reboot
-
-cat > /etc/systemd/system/rc-local.service <<-EOF
+    cat > /etc/systemd/system/rc-local.service <<'EOF'
 [Unit]
 Description=/etc/rc.local Compatibility
 ConditionPathExists=/etc/rc.local
@@ -1290,322 +1103,272 @@ SysVStartPriority=99
 WantedBy=multi-user.target
 EOF
 
-echo "/bin/false" >> /etc/shells
-echo "/usr/sbin/nologin" >> /etc/shells
+    grep -q "^/bin/false" /etc/shells      || echo "/bin/false" >> /etc/shells
+    grep -q "^/usr/sbin/nologin" /etc/shells || echo "/usr/sbin/nologin" >> /etc/shells
 
-cat > /etc/rc.local <<-EOF
+    cat > /etc/rc.local <<'RCLOCAL'
 #!/bin/sh -e
 iptables -I INPUT -p udp --dport 5300 -j ACCEPT
 iptables -t nat -I PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300
 systemctl restart netfilter-persistent
 exit 0
-EOF
+RCLOCAL
 
-chmod +x /etc/rc.local
-systemctl daemon-reload >/dev/null 2>&1
-systemctl enable rc-local >/dev/null 2>&1
-systemctl start rc-local >/dev/null 2>&1
-
-AUTOREB=$(cat /home/daily_reboot)
-SETT=11
-if [ "$AUTOREB" -gt "$SETT" ]; then
-    TIME_DATE="PM"
-else
-    TIME_DATE="AM"
-fi
-
-print_ok "Cron & Autostart configured — Daily reboot at 05:00 $TIME_DATE"
+    chmod +x /etc/rc.local
+    systemctl daemon-reload >/dev/null 2>&1
+    systemctl enable rc-local >/dev/null 2>&1
+    systemctl start rc-local >/dev/null 2>&1
+}
 
 # ══════════════════════════════════════════════
-#              REBUILD INSTALL
+#              REBUILD INSTALL TOOL
 # ══════════════════════════════════════════════
 REBUILD_INSTALL() {
-(curl -sO https://raw.githubusercontent.com/bin456789/reinstall/main/reinstall.sh) & loading $! "Downloading reinstall tool"
-mv reinstall.sh /usr/bin >/dev/null 2>&1
-chmod +x /usr/bin/reinstall.sh
+    curl -sO --max-time 30 \
+        https://raw.githubusercontent.com/bin456789/reinstall/main/reinstall.sh 2>/dev/null
+    mv reinstall.sh /usr/bin 2>/dev/null
+    chmod +x /usr/bin/reinstall.sh 2>/dev/null
 }
 
 # ══════════════════════════════════════════════
 #              SSH DETECTION SETUP
 # ══════════════════════════════════════════════
 SET_DETEK_SSH() {
-  detect_os() {
-    if [[ -f /etc/os-release ]]; then
-      source /etc/os-release
-      echo "$ID $VERSION_ID"
-    else
-      echo "unknown"
-    fi
-  }
+    local os_id os_ver RSYSLOG_FILE
+    os_id=$(grep -w ^ID /etc/os-release | cut -d= -f2 | tr -d '"' 2>/dev/null)
+    os_ver=$(grep -w VERSION_ID /etc/os-release | cut -d= -f2 | tr -d '"' 2>/dev/null)
 
-  os_version=$(detect_os)
+    case "${os_id} ${os_ver}" in
+        "debian 10"|"debian 11"|"debian 12"|"debian 13")
+            RSYSLOG_FILE="/etc/rsyslog.conf" ;;
+        ubuntu\ 20*|ubuntu\ 22*|ubuntu\ 24*|ubuntu\ 25*)
+            RSYSLOG_FILE="/etc/rsyslog.d/50-default.conf" ;;
+        *)
+            RSYSLOG_FILE="/etc/rsyslog.conf" ;;
+    esac
 
-  case "$os_version" in
-    "debian 10"|"debian 11"|"debian 12"|"debian 13")
-      RSYSLOG_FILE="/etc/rsyslog.conf"
-      ;;
-    "ubuntu 20"*|"ubuntu 22"*|"ubuntu 24"*|"ubuntu 25"*)
-      RSYSLOG_FILE="/etc/rsyslog.d/50-default.conf"
-      ;;
-    *)
-      print_info "Unknown OS $os_version — defaulting to /etc/rsyslog.conf"
-      RSYSLOG_FILE="/etc/rsyslog.conf"
-      ;;
-  esac
-
-  LOG_FILES=(
-    "/var/log/auth.log"
-    "/var/log/kern.log"
-    "/var/log/mail.log"
-    "/var/log/user.log"
-    "/var/log/cron.log"
-    "/var/log/user.log"
-  )
-
-  for log_file in "${LOG_FILES[@]}"; do
-    touch "$log_file"
-  done
-
-  set_permissions() {
+    local LOG_FILES=("/var/log/auth.log" "/var/log/kern.log" "/var/log/mail.log"
+                     "/var/log/user.log" "/var/log/cron.log")
     for log_file in "${LOG_FILES[@]}"; do
-      if [[ -f "$log_file" ]]; then
-        chmod 640 "$log_file"
-        chown syslog:adm "$log_file"
-      fi
+        touch "$log_file"
+        chmod 640 "$log_file" 2>/dev/null
+        chown syslog:adm "$log_file" 2>/dev/null
     done
-  }
 
-  check_dropbear_log() {
-    grep -q 'if \$programname == "dropbear"' "$RSYSLOG_FILE"
-  }
-
-  add_dropbear_log() {
-    print_info "Adding Dropbear config to $RSYSLOG_FILE..."
-    cat <<EOF | sudo tee -a "$RSYSLOG_FILE" >/dev/null
-if \$programname == "dropbear" then /var/log/auth.log
+    if ! grep -q 'if \$programname == "dropbear"' "$RSYSLOG_FILE" 2>/dev/null; then
+        cat <<'RSYS' | tee -a "$RSYSLOG_FILE" >/dev/null
+if $programname == "dropbear" then /var/log/auth.log
 & stop
-EOF
-    systemctl restart rsyslog >/dev/null 2>&1
-    print_ok "Dropbear config added. Rsyslog restarted."
-  }
-
-  if check_dropbear_log; then
-    print_info "Dropbear config already present. No changes made."
-  else
-    add_dropbear_log
-  fi
-
-  set_permissions
-}
-
-# ══════════════════════════════════════════════
-#              STEP RUNNER (suppress output)
-# ══════════════════════════════════════════════
-run_step() {
-    local label="$1"
-    local func="$2"
-    local frames=('⣾' '⣽' '⣻' '⢿' '⡿' '⣟' '⣯' '⣷')
-    local i=0
-
-    # Spinner in background writing to stderr
-    {
-        tput civis
-        while true; do
-            printf "\r  \033[38;5;51m${frames[$i]}\033[0m  \033[1;97m%-42s\033[0m" "$label" >&2
-            i=$(( (i + 1) % ${#frames[@]} ))
-            sleep 0.08
-        done
-    } &
-    local spin_pid=$!
-
-    # Run the function, suppress ALL output
-    $func >/dev/null 2>&1
-    local rc=$?
-
-    # Kill spinner
-    kill "$spin_pid" 2>/dev/null
-    wait "$spin_pid" 2>/dev/null
-    tput cnorm
-    printf "\r\033[2K"
-
-    if [[ $rc -eq 0 ]]; then
-        echo -e "  ${GREEN}✔${NC}  ${WHITE}${label}${NC}"
-    else
-        echo -e "  ${ORANGE}◎${NC}  ${WHITE}${label}${NC}  ${DIM}(completed)${NC}"
+RSYS
+        systemctl restart rsyslog >/dev/null 2>&1
     fi
 }
 
 # ══════════════════════════════════════════════
-#              MAIN INSTALLER
+#              SIMPAN CLOUDFLARE CREDENTIALS
 # ══════════════════════════════════════════════
-function RUN_INSTALLER() {
-    clear
-    echo ""
-    echo -e "$LINE"
-    echo -e "  ${CYAN}▌${NC}  ${BOLD}${WHITE}  LUNATIC TUNNELING — FULL INSTALLATION${NC}"
-    echo -e "$LINE"
-    echo ""
-
-    run_step "Initializing proxy & web server"         PROXY_SETUP
-    run_step "Installing core system packages"         TOOLS_SETUP
-    run_step "Creating directory structure"            FODER_SETUP
-
-    # Domain menu butuh input user — tampil normal
-    DOMAIN_MENU
-
-    run_step "Installing SSL certificate"              SSL_SETUP
-    run_step "Installing Xray Core v26"               XRAY_SETUP
-    run_step "Configuring SSH & password policy"       PW_DEFAULT
-    run_step "Setting up LimitHandler"                 LIMIT_HANDLER
-    run_step "Configuring SSHD"                        SSHD_SETUP
-    run_step "Installing Dropbear v2019.78"            DROPBEAR_SETUP
-    run_step "Installing Vnstat bandwidth monitor"     vnSTATS_SETUP
-    run_step "Installing OpenVPN"                      OPVPN_SETUP
-    run_step "Installing Rclone & Wondershaper"        RCLONE_SETUP
-    run_step "Configuring Swap RAM + TCP BBR"          SWAPRAM_SETUP
-    run_step "Installing Fail2ban & SSH banner"        FAIL2BAN_SETUP
-    run_step "Installing WebSocket Proxy + GeoData"    WEBSOCKET_SETUP
-    run_step "Installing CLI menu scripts"             MENU_SETUP
-    run_step "Updating bash profile"                   BASHRC_PROFILE
-    run_step "Downloading reinstall tool"              REBUILD_INSTALL
-    run_step "Configuring SSH log detection"           SET_DETEK_SSH
-    run_step "Saving Cloudflare credentials"           ADD_CEEF
-
-    echo ""
-    echo -e "$LINE"
-    echo -e "  ${GREEN}✔${NC}  ${BOLD}${WHITE}All components installed successfully${NC}"
-    echo -e "$LINE"
-    echo ""
+ADD_CEEF() {
+    echo "$CF_ID"  > /usr/bin/emailcf
+    echo "$CF_KEY" > /usr/bin/keycf
 }
 
 # ══════════════════════════════════════════════
-#              RESTART ALL SERVICES
+#              RESTART SEMUA SERVICE
 # ══════════════════════════════════════════════
-function RESTART_SERVICE() {
-    clear
-    print_install "Restarting & Enabling All Services"
+RESTART_SERVICE() {
+    for srv in nginx openvpn ssh dropbear vnstat cron; do
+        /etc/init.d/$srv restart >/dev/null 2>&1
+    done
 
-    # =========================
-    # SERVICE LIST
-    # =========================
-    local services=(
-        nginx
-        xray
-        haproxy
-        openvpn
-        dropbear
-        ssh
-        sshd
-        cron
-        vnstat
-        netfilter-persistent
-        ws
-        monitor
-        triall.timer
-        triall
-        zivpn
-        udp-custom
-        udp-mini-1
-    )
+    systemctl restart haproxy >/dev/null 2>&1
 
-    # =========================
-    # DAEMON RELOAD
-    # =========================
+    local services=(nginx xray rc-local cron haproxy netfilter-persistent
+                    ws dropbear openvpn vnstat triall zivpn udp-custom udp-mini-1)
+
     systemctl daemon-reload >/dev/null 2>&1
-
-    # =========================
-    # ENABLE CORE SERVICE
-    # =========================
     for core in rc-local cron netfilter-persistent; do
-        if systemctl list-unit-files | grep -qw "$core"; then
-            systemctl enable --now "$core" >/dev/null 2>&1
-        fi
+        systemctl enable --now "$core" >/dev/null 2>&1
     done
 
-    # =========================
-    # RESTART SERVICE + LOADING
-    # =========================
     for srv in "${services[@]}"; do
-        if systemctl list-unit-files | grep -qw "$srv"; then
-            systemctl restart "$srv" >/dev/null 2>&1 &
-            loading $! "Restarting $srv"
-        fi
+        systemctl restart "$srv" >/dev/null 2>&1
+        systemctl enable --now "$srv" >/dev/null 2>&1
     done
 
-    # =========================
-    # ENABLE SERVICE
-    # =========================
-    for srv in "${services[@]}"; do
-        if systemctl list-unit-files | grep -qw "$srv"; then
-            systemctl enable --now "$srv" >/dev/null 2>&1
-        fi
-    done
-
-    # =========================
-    # FINAL RELOAD
-    # =========================
     systemctl daemon-reexec >/dev/null 2>&1
 
-    # =========================
-    # CLEAN HISTORY
-    # =========================
     history -c
     grep -q "unset HISTFILE" /etc/profile || echo "unset HISTFILE" >> /etc/profile
 
-    # =========================
-    # CLEAN FILE SISA
-    # =========================
-    rm -f /root/openvpn /root/key.pem /root/cert.pem
-
-    print_success "All services restarted & enabled"
-}
-
-# ══════════════════════════════════════════════
-#              CLEANUP
-# ══════════════════════════════════════════════
-function hapuskabeh() {
-rm -rf /root/menu
-rm -rf /root/*.zip
-rm -rf /root/*.sh
-rm -rf /root/LICENSE
-rm -rf /root/README.md
-rm -rf /root/domain
-rm -rf /root/dropbear*
-rm -rf /root/udp
-rm -rf /root/*.log
+    rm -f /root/openvpn /root/key.pem /root/cert.pem 2>/dev/null
 }
 
 # ══════════════════════════════════════════════
 #              FIX CONFIGS
 # ══════════════════════════════════════════════
-function FIX_CONFIGS() {
-clear
-curl -fsSL -o backend.sh https://raw.githubusercontent.com/diwanbhoikfost/v2/main/configure/backend.sh
-bash backend.sh
+FIX_CONFIGS() {
+    curl -fsSL --max-time 30 \
+        -o /tmp/backend.sh \
+        https://raw.githubusercontent.com/diwanbhoikfost/v2/main/configure/backend.sh \
+        2>/dev/null
+    if [[ -f /tmp/backend.sh ]]; then
+        bash /tmp/backend.sh >/dev/null 2>&1
+        rm -f /tmp/backend.sh
+    fi
 }
 
-
-function UDEPE() {
-clear
-curl -fsSL -o install.sh https://raw.githubusercontent.com/diwanbhoikfost/v2/main/udp/install.sh
-bash install.sh
+# ══════════════════════════════════════════════
+#              UDP ZIVPN
+# ══════════════════════════════════════════════
+UDEPE() {
+    curl -fsSL --max-time 30 \
+        -o /tmp/udp_install.sh \
+        https://raw.githubusercontent.com/diwanbhoikfost/v2/main/udp/install.sh \
+        2>/dev/null
+    if [[ -f /tmp/udp_install.sh ]]; then
+        bash /tmp/udp_install.sh >/dev/null 2>&1
+        rm -f /tmp/udp_install.sh
+    fi
 }
 
+# ══════════════════════════════════════════════
+#              CLEANUP
+# ══════════════════════════════════════════════
+hapuskabeh() {
+    rm -rf /root/menu /root/*.zip /root/*.sh /root/LICENSE \
+           /root/README.md /root/domain /root/dropbear* \
+           /root/udp /root/*.log /tmp/gotop.deb 2>/dev/null
+}
 
-# INSTALL AWAL
+# ══════════════════════════════════════════════
+#              SUMMARY INSTALASI
+# ══════════════════════════════════════════════
+show_summary() {
+    clear
+    local domain
+    domain=$(cat /etc/xray/domain 2>/dev/null || echo "belum diset")
+    local ssl_status="Belum terinstall"
+    [[ -f /etc/xray/xray.crt ]] && ssl_status="Terinstall ✔"
+
+    echo ""
+    echo -e "$LINE"
+    echo -e "  ${GOLD}${BOLD}"
+cat << 'DONE'
+  ██████╗ ██╗██╗    ██╗ █████╗ ███╗   ██╗
+  ██╔══██╗██║██║    ██║██╔══██╗████╗  ██║
+  ██║  ██║██║██║ █╗ ██║███████║██╔██╗ ██║
+  ██║  ██║██║██║███╗██║██╔══██║██║╚██╗██║
+  ██████╔╝██║╚███╔███╔╝██║  ██║██║ ╚████║
+  ╚═════╝ ╚═╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═══╝
+DONE
+    echo -e "  ${NC}${GOLD}${BOLD}  TUNNELING — INSTALASI SELESAI!${NC}"
+    echo -e "$LINE"
+    echo ""
+    printf "  ${CYAN}%-20s${NC}  ${DIM}│${NC}  ${GOLD}%s${NC}\n"  "Domain"   "$domain"
+    printf "  ${CYAN}%-20s${NC}  ${DIM}│${NC}  ${WHITE}%s${NC}\n" "IP Server" "$IPVPS"
+    printf "  ${CYAN}%-20s${NC}  ${DIM}│${NC}  ${GREEN}%s${NC}\n" "SSL"       "$ssl_status"
+    echo ""
+    echo -e "  ${GOLD}${BOLD}Protokol Tersedia:${NC}"
+    echo -e "$LINE2"
+    echo -e "    ${GREEN}●${NC}  SSH Direct        :  Port 22"
+    echo -e "    ${GREEN}●${NC}  Dropbear          :  Port 109"
+    echo -e "    ${GREEN}●${NC}  WebSocket HTTP    :  Port 80, 8080, 8880"
+    echo -e "    ${GREEN}●${NC}  WebSocket TLS     :  Port 2083"
+    echo -e "    ${GREEN}●${NC}  Xray VMess/VLESS  :  Port 10000-10010"
+    echo -e "    ${GREEN}●${NC}  OpenVPN TCP/UDP   :  Port 1194"
+    echo -e "    ${GREEN}●${NC}  UDP ZiVPN/Custom  :  via udp-mini"
+    echo ""
+    echo -e "  ${GOLD}${BOLD}Auto-Features:${NC}"
+    echo -e "$LINE2"
+    echo -e "    ${GREEN}✔${NC}  SSL auto-renew (setiap hari jam 03:00)"
+    echo -e "    ${GREEN}✔${NC}  Daily reboot jam 05:00"
+    echo -e "    ${GREEN}✔${NC}  Log cleanup setiap 6 jam"
+    echo -e "    ${GREEN}✔${NC}  Torrent blocking (iptables)"
+    echo ""
+    printf "  ${DIM}Sukses: ${GREEN}%s${NC}${DIM}  |  Non-fatal: ${YELLOW}%s${NC}\n" \
+        "$INSTALL_OK" "$INSTALL_ERRORS"
+    echo ""
+    echo -e "$LINE"
+    echo -e "  ${GREEN}✔${NC}  ${BOLD}${WHITE}DIWAN TUNNELING — Siap Digunakan!${NC}"
+    echo -e "$LINE"
+    echo ""
+}
+
+# ══════════════════════════════════════════════
+#              MAIN INSTALLER
+# ══════════════════════════════════════════════
+RUN_INSTALLER() {
+    clear
+    echo ""
+    echo -e "$LINE"
+    echo -e "  ${CYAN}▌${NC}  ${BOLD}${WHITE}  DIWAN TUNNELING — FULL INSTALLATION${NC}"
+    echo -e "$LINE2"
+    echo ""
+
+    run_step "Inisialisasi proxy & web server"          PROXY_SETUP
+    run_step "Install semua paket sistem"               TOOLS_SETUP
+    run_step "Membuat struktur direktori"               FOLDER_SETUP
+
+    # Domain butuh input manual
+    DOMAIN_MENU
+
+    run_step "Install SSL Certificate (auto-retry)"     SSL_SETUP
+    run_step "Install Xray Core v26"                    XRAY_SETUP
+    run_step "Konfigurasi SSH & password policy"        PW_DEFAULT
+    run_step "Setup LimitHandler"                       LIMIT_HANDLER
+    run_step "Konfigurasi SSHD"                         SSHD_SETUP
+    run_step "Install Dropbear v2019.78"                DROPBEAR_SETUP
+    run_step "Install vnstat bandwidth monitor"         vnSTATS_SETUP
+    run_step "Install OpenVPN"                          OPVPN_SETUP
+    run_step "Install Rclone & Wondershaper"            RCLONE_SETUP
+    run_step "Setup Swap RAM 3GB + TCP BBR"             SWAPRAM_SETUP
+    run_step "Install Fail2ban & SSH banner Diwan"      FAIL2BAN_SETUP
+    run_step "Install WebSocket Proxy + GeoData"        WEBSOCKET_SETUP
+    run_step "Install CLI menu scripts"                 MENU_SETUP
+    run_step "Update bash profile"                      BASHRC_PROFILE
+    run_step "Setup cron (reboot, log, SSL renew)"      CRON_SETUP
+    run_step "Download reinstall tool"                  REBUILD_INSTALL
+    run_step "Konfigurasi SSH log detection"            SET_DETEK_SSH
+    run_step "Simpan Cloudflare credentials"            ADD_CEEF
+
+    echo ""
+    echo -e "$LINE"
+    echo -e "  ${GREEN}✔${NC}  ${BOLD}${WHITE}Semua komponen berhasil diinstall!${NC}"
+    echo -e "$LINE"
+    echo ""
+}
+
+# ══════════════════════════════════════════════
+#              JALANKAN
+# ══════════════════════════════════════════════
+
+# 1. Banner
+show_banner
+
+# 2. Cek requirements PERTAMA — sebelum install apapun
+check_requirements
+
+# 3. Info sistem
+show_sysinfo
+
+# 4. Install dependensi awal
+install_base_deps
+
+# 5. Main installer
 RUN_INSTALLER
 
-# FINISHING
-FIX_CONFIGS
-UDEPE
-RESTART_SERVICE
+# 6. Finishing
+run_step "Re-apply config files"   FIX_CONFIGS
+run_step "Install UDP ZiVPN"       UDEPE
+run_step "Restart semua service"   RESTART_SERVICE
+
+# 7. Summary
+show_summary
+
+# 8. Cleanup — rm -f $0 dipindah ke sini (akhir), bukan awal
 hapuskabeh
-clear
 
 echo ""
-echo -e "$LINE"
-echo -e "  ${GREEN}✔${NC}  ${BOLD}${WHITE}Installation Complete — Rebooting...${NC}"
-echo -e "$LINE"
-echo ""
-sleep 3
+echo -e "  ${CYAN}→${NC}  ${WHITE}Server reboot dalam 5 detik...${NC}"
+sleep 5
 reboot
