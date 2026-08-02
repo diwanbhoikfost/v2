@@ -493,7 +493,7 @@ DOMENS_SETUP() {
         -H "X-Auth-Key: $CF_KEY" \
         -H "Content-Type: application/json" | jq -r .result[0].id)
 
-    local payload="{\"type\":\"A\",\"name\":\"$RECORD\",\"content\":\"$IPVPS\",\"ttl\":120,\"proxied\":false}"
+    local payload="{\"type\":\"A\",\"name\":\"$RECORD\",\"content\":\"$IPVPS\",\"ttl\":120,\"proxied\":true}"
 
     if [[ "$RECORD_ID" == "null" || -z "$RECORD_ID" ]]; then
         print_info "Menambah DNS record: $RECORD"
@@ -572,10 +572,6 @@ SSL_SETUP() {
 
     print_info "Domain: ${GOLD}$domain${NC}"
 
-    # Hentikan webserver sementara
-    for svc in nginx apache2 lighttpd; do
-        systemctl stop "$svc" >/dev/null 2>&1
-    done
 
     (/root/.acme.sh/acme.sh --upgrade --auto-upgrade >/dev/null 2>&1) & \
         loading $! "Upgrade acme.sh"
@@ -586,7 +582,8 @@ SSL_SETUP() {
     local max_attempts=3 attempt=1 ssl_ok=0
     while [[ $attempt -le $max_attempts ]]; do
         print_info "Percobaan SSL ke-${attempt}/${max_attempts} untuk ${GOLD}$domain${NC}..."
-        /root/.acme.sh/acme.sh --issue -d "$domain" --standalone -k ec-256 \
+        CF_Email="$CF_ID" CF_Key="$CF_KEY" \
+        /root/.acme.sh/acme.sh --issue -d "$domain" --dns dns_cf -k ec-256 \
             --force >/dev/null 2>&1
         if [[ $? -eq 0 ]]; then ssl_ok=1; break; fi
         if [[ $attempt -lt $max_attempts ]]; then
