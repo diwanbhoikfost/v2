@@ -90,15 +90,20 @@ cat > /etc/nginx/conf.d/xray.conf <<'EOF'
           proxy_send_timeout 300s;
       }
 
-      # ================= Root / : SSH WS fallback + Fake Web =================
-      # Jika ada header "Upgrade: websocket" → SSH (ws.py:10015)
-      # Jika HTTP biasa → static page (stealth / fake web)
+      # ================= Root / : SSH WS fallback (semua inject path) =================
+      # Semua request ke / diteruskan ke ws.py — WS dan non-WS
+      # inject tool: connect, kirim payload HTTP, terima 101, lanjut SSH
+      # ws.py handle WS upgrade, HTTP CONNECT, dan raw inject dengan benar
       location / {
-          if ($http_upgrade ~* "websocket") {
-              proxy_pass http://127.0.0.1:10015;
-          }
-          root /var/www/html;
-          index index.html;
+          proxy_pass http://127.0.0.1:10015;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection $connection_upgrade;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_read_timeout 300s;
+          proxy_send_timeout 300s;
       }
   }
 
@@ -221,13 +226,19 @@ cat > /etc/nginx/conf.d/xray.conf <<'EOF'
           grpc_set_header X-Real-IP $remote_addr;
       }
 
-      # ================= Root / : SSH WS TLS fallback + Fake Web =================
+      # ================= Root / : SSH WS TLS fallback (semua inject path) =================
+      # Sama seperti HTTP — ws.py handle semua jenis koneksi inject + WS
       location / {
-          if ($http_upgrade ~* "websocket") {
-              proxy_pass http://127.0.0.1:10015;
-          }
-          root /var/www/html;
-          index index.html;
+          proxy_pass http://127.0.0.1:10015;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection $connection_upgrade;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto https;
+          proxy_read_timeout 300s;
+          proxy_send_timeout 300s;
       }
   }
 EOF
